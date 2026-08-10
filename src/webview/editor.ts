@@ -40,7 +40,7 @@ import {
   ulMarkers,
 } from './listPatterns'
 import { tableAutoFormat } from './tableFormatter'
-import type { MdpadSettings, SyntaxMode } from './types'
+import type { ScribeAsideSettings, SyntaxMode } from './types'
 
 export const wrapSelection = (view: EditorView, marker: string): boolean => {
   const { from, to } = view.state.selection.main
@@ -251,7 +251,7 @@ export const toggleHeading = (view: EditorView): boolean => {
 
 // Formatting shortcuts (bold, italic, strike, code, highlight, heading) are
 // routed through the VS Code extension host via package.json keybindings and
-// the MdpadCommand message protocol, so they work uniformly as Cmd/Ctrl+letter
+// the ScribeAsideCommand message protocol, so they work uniformly as Cmd/Ctrl+letter
 // on both macOS and Windows/Linux. Only list-structural keys stay local.
 const mdKeymap: KeyBinding[] = [
   { key: 'Tab', run: indentList },
@@ -260,7 +260,7 @@ const mdKeymap: KeyBinding[] = [
 
 // CodeMirror's defaultKeymap binds `Mod-i` to `selectParentSyntax`, which
 // expands the selection to the parent syntax node. When Cmd/Ctrl+I is pressed,
-// the VS Code keybinding fires `mdpad.toggleItalic` (routed through the host),
+// the VS Code keybinding fires `scribeaside.toggleItalic` (routed through the host),
 // but the keydown *also* reaches CodeMirror and runs `selectParentSyntax`
 // first — so by the time our `wrapSelection` message arrives, the selection
 // has already been widened and we end up italicising a whole line. Swallow
@@ -487,7 +487,7 @@ const inlineFoldWidgets = ViewPlugin.fromClass(
 
     handleClick(view: EditorView, e: MouseEvent): void {
       const target = e.target as HTMLElement
-      const lineEl = target.closest('.mdpad-foldable')
+      const lineEl = target.closest('.scribeaside-foldable')
       if (!lineEl) return
       const rect = lineEl.getBoundingClientRect()
       if (e.clientX < rect.right - 40) return
@@ -536,8 +536,8 @@ const inlineFoldWidgets = ViewPlugin.fromClass(
 
         const folding = isFolded(line.to)
         const cls = folding
-          ? `mdpad-foldable mdpad-foldable-${foldLevel} mdpad-folded`
-          : `mdpad-foldable mdpad-foldable-${foldLevel}`
+          ? `scribeaside-foldable scribeaside-foldable-${foldLevel} scribeaside-folded`
+          : `scribeaside-foldable scribeaside-foldable-${foldLevel}`
         decos.push({
           from: line.from,
           deco: Decoration.line({ class: cls }),
@@ -552,18 +552,18 @@ const inlineFoldWidgets = ViewPlugin.fromClass(
 
 const vsCodeTheme = EditorView.theme({
   '&': {
-    backgroundColor: 'var(--mdpad-bg)',
-    color: 'var(--mdpad-fg)',
+    backgroundColor: 'var(--scribeaside-bg)',
+    color: 'var(--scribeaside-fg)',
   },
   '.cm-content': {
-    caretColor: 'var(--mdpad-fg)',
+    caretColor: 'var(--scribeaside-fg)',
     fontSize: 'var(--vscode-font-size, 13px)',
   },
   '.cm-cursor': {
-    borderLeftColor: 'var(--mdpad-fg)',
+    borderLeftColor: 'var(--scribeaside-fg)',
   },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-    backgroundColor: 'var(--mdpad-selection) !important',
+    backgroundColor: 'var(--scribeaside-selection) !important',
   },
   '&.cm-focused': {
     outline: 'none',
@@ -586,7 +586,7 @@ const decorationPlugins: Record<SyntaxMode, Extension> = {
   hidden: markdownDecorations('hidden'),
 }
 
-const buildSettingsExtensions = (settings: MdpadSettings) => {
+const buildSettingsExtensions = (settings: ScribeAsideSettings) => {
   const fontFamily =
     settings.fontFamily === 'inherit'
       ? 'var(--vscode-font-family, sans-serif)'
@@ -619,7 +619,7 @@ const buildSettingsExtensions = (settings: MdpadSettings) => {
 export interface EditorHandle {
   view: EditorView
   setContent: (content: string) => void
-  applySettings: (settings: MdpadSettings) => void
+  applySettings: (settings: ScribeAsideSettings) => void
 }
 
 export const createEditor = (
@@ -687,7 +687,7 @@ export const createEditor = (
     }
   }
 
-  const applySettings = (settings: MdpadSettings): void => {
+  const applySettings = (settings: ScribeAsideSettings): void => {
     setListIndent(settings.listIndentSize)
     view.dispatch({
       effects: [

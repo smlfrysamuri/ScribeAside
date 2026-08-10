@@ -3,36 +3,36 @@ import * as vscode from 'vscode'
 
 suite('Extension', () => {
   test('should activate', async () => {
-    const ext = vscode.extensions.getExtension('tbekaert.mdpad')
+    const ext = vscode.extensions.getExtension('smlfrysamuri.scribeaside')
     assert.ok(ext, 'Extension not found')
     await ext.activate()
     assert.strictEqual(ext.isActive, true)
   })
 
   const expectedCommands = [
-    'mdpad.openInEditor',
-    'mdpad.newPage',
-    'mdpad.deletePage',
-    'mdpad.previousPage',
-    'mdpad.nextPage',
-    'mdpad.selectPage',
-    'mdpad.exportPage',
-    'mdpad.find',
-    'mdpad.openSettings',
-    'mdpad.searchPages',
-    'mdpad.switchToGlobal',
-    'mdpad.switchToWorkspace',
-    'mdpad.switchToTeam',
-    'mdpad.copyPageTo',
-    'mdpad.toggleBold',
-    'mdpad.toggleItalic',
-    'mdpad.toggleStrikethrough',
-    'mdpad.toggleCode',
-    'mdpad.toggleHighlight',
-    'mdpad.toggleHeading',
-    'mdpad.enterReaderMode',
-    'mdpad.exitReaderMode',
-    'mdpad.focusNotes',
+    'scribeaside.openInEditor',
+    'scribeaside.newPage',
+    'scribeaside.deletePage',
+    'scribeaside.previousPage',
+    'scribeaside.nextPage',
+    'scribeaside.selectPage',
+    'scribeaside.exportPage',
+    'scribeaside.find',
+    'scribeaside.openSettings',
+    'scribeaside.searchPages',
+    'scribeaside.switchToGlobal',
+    'scribeaside.switchToWorkspace',
+    'scribeaside.switchToTeam',
+    'scribeaside.copyPageTo',
+    'scribeaside.toggleBold',
+    'scribeaside.toggleItalic',
+    'scribeaside.toggleStrikethrough',
+    'scribeaside.toggleCode',
+    'scribeaside.toggleHighlight',
+    'scribeaside.toggleHeading',
+    'scribeaside.enterReaderMode',
+    'scribeaside.exitReaderMode',
+    'scribeaside.focusNotes',
   ]
 
   for (const cmd of expectedCommands) {

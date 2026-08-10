@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a new feature for mdpad
+description: Suggest a new feature for ScribeAside
 labels: ["enhancement"]
 body:
   - type: textarea

@@ -120,7 +120,7 @@ jobs:
         id: meta
         run: |
           VERSION=$(jq -r .version package.json)
-          VSIX=$(ls mdpad-*.vsix)
+          VSIX=$(ls scribeaside-*.vsix)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "vsix=$VSIX" >> "$GITHUB_OUTPUT"
 

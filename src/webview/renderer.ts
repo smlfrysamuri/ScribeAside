@@ -58,7 +58,7 @@ md.linkify.set({ fuzzyEmail: false })
 // A leading `[ ] ` / `[x] ` text child of a list item's first paragraph is
 // replaced by an injected html_inline token — `html: false` gates the parser,
 // not the renderer, so the injected content is emitted verbatim.
-md.core.ruler.after('inline', 'mdpad-task-list', state => {
+md.core.ruler.after('inline', 'scribeaside-task-list', state => {
   const tokens = state.tokens
   for (let i = 2; i < tokens.length; i++) {
     const inline = tokens[i]
@@ -71,11 +71,11 @@ md.core.ruler.after('inline', 'mdpad-task-list', state => {
     if (!match) continue
     first.content = first.content.slice(match[0].length)
     const checkbox = new state.Token('html_inline', '', 0)
-    checkbox.content = `<input class="mdpad-task-checkbox" type="checkbox" disabled${
+    checkbox.content = `<input class="scribeaside-task-checkbox" type="checkbox" disabled${
       match[1] === ' ' ? '' : ' checked'
     }> `
     inline.children.unshift(checkbox)
-    tokens[i - 2].attrJoin('class', 'mdpad-task-item')
+    tokens[i - 2].attrJoin('class', 'scribeaside-task-item')
   }
 })
 

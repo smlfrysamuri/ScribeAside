@@ -3,7 +3,7 @@
 Adds a rendered read-only view of the active page — real heading sizes, real tables, horizontal
 rules, highlighted code blocks — that the sidebar and panel can flip into and out of. The editor
 keeps its uniform-line-height constraint because it must; the reader is plain HTML in the same
-webview, so it has no such constraint. This is the piece that lets mdpad replace the native markdown
+webview, so it has no such constraint. This is the piece that lets ScribeAside replace the native markdown
 preview for people who want it docked in a sidebar.
 
 Also fixes a latent bug found while surveying: on webview `ready` the host sends only `init`, never
@@ -19,8 +19,8 @@ settings until the next scope switch or configuration change.
 | `exitReaderMode` message | `src/webview/types.ts` | Webview → extension, posted on double-click in the rendered view |
 | Reader container + guards | `src/webview/index.ts` | Lazily created `#reader` div; while active, `command` and `setCursor` messages are ignored and `init`/`replaceContent` re-render |
 | `onReady` callback | both providers + `handleWebviewMessage.ts` | Lets the extension push settings and reader state after every webview `ready` — the latent-bug fix |
-| `mdpad.enterReaderMode` / `mdpad.exitReaderMode` | `package.json`, `extension.ts` | Two commands so the title-bar icon can differ per state (`$(open-preview)` / `$(edit)`); both bound to `Ctrl/Cmd+Shift+V` with complementary `when` clauses, giving toggle semantics |
-| Reader state | `extension.ts` | Host-owned boolean, persisted in `globalState['mdpad.readerMode']`, mirrored to context key `mdpad.readerMode`, pushed to the webview |
+| `scribeaside.enterReaderMode` / `scribeaside.exitReaderMode` | `package.json`, `extension.ts` | Two commands so the title-bar icon can differ per state (`$(open-preview)` / `$(edit)`); both bound to `Ctrl/Cmd+Shift+V` with complementary `when` clauses, giving toggle semantics |
+| Reader state | `extension.ts` | Host-owned boolean, persisted in `globalState['scribeaside.readerMode']`, mirrored to context key `scribeaside.readerMode`, pushed to the webview |
 | Reader styles | `src/webview/styles.css` | Preview-grade typography under `#reader`, `tok-*` token colors mirroring the editor palette |
 
 ## Design constraints
@@ -71,12 +71,12 @@ settings until the next scope switch or configuration change.
   `highlight` = the lezer fence path above. Plugins: `markdown-it-mark`; a local core rule after
   `inline` that turns a leading `[ ] ` / `[x] ` text child of a `list_item_open → paragraph_open →
   inline` sequence into a disabled checkbox `html_inline` token and tags the item
-  `mdpad-task-item`.
+  `scribeaside-task-item`.
 
 ### Step 3 — protocol and webview
 
 - [x] `types.ts`: add both messages.
-- [x] `index.ts`: `setReaderMode(enabled)` toggles `mdpad-reader-active` on `<body>`, lazily creates
+- [x] `index.ts`: `setReaderMode(enabled)` toggles `scribeaside-reader-active` on `<body>`, lazily creates
   `#reader` with a click handler (anchors → `openLink` post, default prevented) and a dblclick
   handler (→ `exitReaderMode` post). While active: `init`/`replaceContent` still update the editor
   but skip `focus()` and re-render the reader; `command` and `setCursor` are dropped. On
@@ -98,15 +98,15 @@ settings until the next scope switch or configuration change.
 ### Step 6 — `package.json`
 
 - [x] Two command entries with icons; two `view/title` navigation menu entries gated on
-  `mdpad.readerMode`; two `Ctrl/Cmd+Shift+V` keybindings gated on `mdpad.focused` and complementary
-  `mdpad.readerMode` values.
+  `scribeaside.readerMode`; two `Ctrl/Cmd+Shift+V` keybindings gated on `scribeaside.focused` and complementary
+  `scribeaside.readerMode` values.
 
 ### Step 7 — styles
 
-- [x] `#reader` hidden by default; `.mdpad-reader-active` shows it and hides `#editor`. Typography:
+- [x] `#reader` hidden by default; `.scribeaside-reader-active` shows it and hides `#editor`. Typography:
   stepped heading sizes with the native preview's bottom borders on h1/h2, spaced paragraphs and
   lists, bordered tables with header emphasis, background-tinted `pre` blocks with x-scroll,
-  blockquote border, `<mark>` matching `.mdpad-highlight`, links in
+  blockquote border, `<mark>` matching `.scribeaside-highlight`, links in
   `--vscode-textLink-foreground`, `tok-*` colors copied variable-for-variable from the editor
   palette.
 
@@ -119,7 +119,7 @@ settings until the next scope switch or configuration change.
   rendered h1/table present, `init` re-render while active, command messages dropped while active,
   dblclick posts `exitReaderMode`, anchor click posts `openLink` instead of navigating.
 - [x] Integration command list +2. README (feature section + command), CLAUDE.md, welcome content
-  (both copies), test-content QA section, changeset `reader-mode` (`"mdpad": minor`).
+  (both copies), test-content QA section, changeset `reader-mode` (`"scribeaside": minor`).
 
 ## Checkpoint
 

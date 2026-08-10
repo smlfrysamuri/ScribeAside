@@ -48,7 +48,7 @@ export const handleWebviewMessage = (
           doc => vscode.window.showTextDocument(doc),
           err => {
             vscode.window.showErrorMessage(
-              `mdpad: could not open ${url} — ${err instanceof Error ? err.message : String(err)}`,
+              `ScribeAside: could not open ${url} — ${err instanceof Error ? err.message : String(err)}`,
             )
           },
         )

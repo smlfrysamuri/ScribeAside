@@ -11,13 +11,13 @@ only executable line touched is `WELCOME_CONTENT` in `src/NotesStorage.ts`, and 
 | Architecture entries | `CLAUDE.md` | The four new modules, the third scope, the new keys |
 | Welcome text | `src/NotesStorage.ts` + `.github/welcome-content.md` | Two copies that must stay identical |
 | Manual QA | `.github/test-content.md` | Already carries the hidden-mode section from `01`; team notes get one too |
-| `team-notes-scope` | `.changeset/` | `"mdpad": minor`, alongside `01`'s `hidden-syntax-mode` |
+| `team-notes-scope` | `.changeset/` | `"scribeaside": minor`, alongside `01`'s `hidden-syntax-mode` |
 
 ## Facts you'll rely on
 
 `CLAUDE.md` § Manual QA states that `WELCOME_CONTENT` in `src/NotesStorage.ts:6-55` and
 `.github/welcome-content.md` are kept in sync. They currently differ only in the Tips table's column
-padding — the `.md` copy has been through mdpad's table formatter and the TypeScript template literal
+padding — the `.md` copy has been through ScribeAside's table formatter and the TypeScript template literal
 has not. That difference is pre-existing and cosmetic; the prose must match line for line.
 
 Two changesets are open at the end of this work, `hidden-syntax-mode` (written at `01`) and
@@ -30,10 +30,10 @@ Two changesets are open at the end of this work, `hidden-syntax-mode` (written a
 - [x] Under **Organizing**, add a **Team notes** section after "Workspace & Global notes": what the
   folder is, that identity is the filename, that `activeId` is per-user and never committed, that
   empty pages are not written, and that the conflict policy is last-writer-wins with git as the merge
-  tool. Name `mdpad: Switch to Team Notes` as the entry point and `mdpad: Copy Page To…` as the way to
+  tool. Name `ScribeAside: Switch to Team Notes` as the entry point and `ScribeAside: Copy Page To…` as the way to
   move existing notes in.
 
-- [x] Add `mdpad.teamNotesFolder` to the settings table.
+- [x] Add `scribeaside.teamNotesFolder` to the settings table.
 
 - [x] Update the "Search across pages" line — it says "both scopes" and there are now up to three.
 
@@ -47,13 +47,13 @@ Two changesets are open at the end of this work, `hidden-syntax-mode` (written a
   default and must stay byte-identical* — that is the constraint a future contributor needs, not the
   feature description.
 
-- [x] Add a Team notes section mirroring the Settings Sync one, and add `mdpad.teamActiveId` and the
-  `mdpad.teamAvailable` context key to § Naming.
+- [x] Add a Team notes section mirroring the Settings Sync one, and add `scribeaside.teamActiveId` and the
+  `scribeaside.teamAvailable` context key to § Naming.
 
 ### Step 3 — welcome content, both copies
 
 - [x] Replace the "Globe icon" tip with one that names the scope cycle, mention **Copy Page To…** in
-  the overflow-menu tip, and add a one-line pointer to `mdpad.syntaxMode`.
+  the overflow-menu tip, and add a one-line pointer to `scribeaside.syntaxMode`.
 
 - [x] Make the same edit in `.github/welcome-content.md`. A drift here is invisible until a new user
   installs the extension, which is why it is its own checkpoint item below.
@@ -65,7 +65,7 @@ Two changesets are open at the end of this work, `hidden-syntax-mode` (written a
 
 ### Step 5 — `.changeset/team-notes-scope.md`
 
-- [x] `"mdpad": minor`, describing the scope, the folder layout, the two commands, the external-edit
+- [x] `"scribeaside": minor`, describing the scope, the folder layout, the two commands, the external-edit
   reload, and the last-writer-wins policy.
 
 ## Checkpoint
@@ -78,7 +78,7 @@ Two changesets are open at the end of this work, `hidden-syntax-mode` (written a
 - [x] `pnpm test:integration` — 22 passing
 
 1. **Control: `notesStorage.test.ts`'s "returns initial state with one welcome page" still passes.**
-   It asserts `content.includes('Welcome to mdpad')`, so it is the guard that a `WELCOME_CONTENT` edit
+   It asserts `content.includes('Welcome to ScribeAside')`, so it is the guard that a `WELCOME_CONTENT` edit
    did not break the template literal — the one executable risk in this doc.
 
 2. `diff` the prose of `WELCOME_CONTENT` against `.github/welcome-content.md`: identical apart from

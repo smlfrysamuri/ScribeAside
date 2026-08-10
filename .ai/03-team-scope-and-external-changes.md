@@ -1,7 +1,7 @@
 # 03 — Team scope, scope registry, and external changes
 
 Makes the folder storage from `02` reachable: a third scope alongside Workspace and Global, backed by
-`<workspace>/<mdpad.teamNotesFolder>`. The hardcoded two-value scope union in `extension.ts` becomes a
+`<workspace>/<scribeaside.teamNotesFolder>`. The hardcoded two-value scope union in `extension.ts` becomes a
 registry, two commands are added (`switchToTeam`, `copyPageTo`), and a new `replaceContent` message
 pushes a teammate's edit into the webview without stealing focus. Gated on `02` being **verified**,
 not merely written: every step here asserts against `FileNotesStorage`'s cache semantics, and
@@ -12,9 +12,9 @@ debugging both layers at once is what this ordering exists to avoid.
 | Piece | Home file | Role |
 |---|---|---|
 | `Scope`, `SCOPES`, `SCOPE_ORDER` | `src/extension.ts` | The registry that replaces ten hardcoded ternaries |
-| `mdpad.switchToTeam`, `mdpad.copyPageTo` | `src/extension.ts`, `package.json` | Entry point and the adoption bridge |
-| `mdpad.teamNotesFolder` | `package.json`, `extension.ts` | Folder name, default `.mdpad` |
-| `mdpad.teamAvailable` | context key | Makes the title-bar scope cycle two-stop or three-stop |
+| `scribeaside.switchToTeam`, `scribeaside.copyPageTo` | `src/extension.ts`, `package.json` | Entry point and the adoption bridge |
+| `scribeaside.teamNotesFolder` | `package.json`, `extension.ts` | Folder name, default `.scribeaside` |
+| `scribeaside.teamAvailable` | context key | Makes the title-bar scope cycle two-stop or three-stop |
 | `{type:'replaceContent'}` | `src/webview/types.ts`, `src/webview/index.ts` | External edit → editor, without `.focus()` |
 | async `activate`, promise-returning `deactivate` | `src/extension.ts` | Folder probe at startup; pending writes flushed at shutdown |
 
@@ -29,7 +29,7 @@ turns each of those sites into a loop, and adding a fourth scope later would the
 
 The title-bar button shows the **next** scope in the cycle rather than a menu. Workspace → Global →
 Team → Workspace when a team folder exists; Workspace → Global → Workspace when it does not, which is
-what `mdpad.teamAvailable` gates. A user with no team folder therefore sees today's two-stop toggle
+what `scribeaside.teamAvailable` gates. A user with no team folder therefore sees today's two-stop toggle
 exactly as before, and discovers the feature through the command palette entry, which is the one that
 offers to create the folder.
 
@@ -50,7 +50,7 @@ through it, so the cursor clamps without extra code.
 `sendInitToActive` (`:78-87`) sends `init` **and** `settings` on every scope switch and page change.
 `replaceContent` must not go through it.
 
-`mdpad.scope` is persisted in `workspaceState` (`:110`) and read back at activation (`:13-16`). A
+`scribeaside.scope` is persisted in `workspaceState` (`:110`) and read back at activation (`:13-16`). A
 value saved by this version can be `'team'`, and the folder may be gone by the next launch, so the
 read has to be validated rather than trusted.
 
@@ -74,7 +74,7 @@ exist before either compiles.
   ⚠ No `editor?.view.focus()`. This is the step that silently does the wrong thing if you copy the
   `init` case: it compiles, the content updates, and the symptom is that the user's cursor jumps out
   of whatever file they were editing whenever a teammate saves — which reads as VS Code stealing
-  focus, not as an mdpad message handler.
+  focus, not as an ScribeAside message handler.
 
 - [x] **Skip the update when the webview holds edits the host has not seen.** Track `syncedContent`:
   the last content the two agreed on, set when the host sends content and again when a local edit is
@@ -92,24 +92,24 @@ exist before either compiles.
 
 ### Step 3 — `package.json`: setting, commands, menus
 
-- [x] `mdpad.teamNotesFolder`: string, default `".mdpad"`, described as relative to the first
+- [x] `scribeaside.teamNotesFolder`: string, default `".scribeaside"`, described as relative to the first
   workspace folder.
 
-- [x] Commands `mdpad.switchToTeam` (title "Switch to Team Notes", icon `$(organization)`) and
-  `mdpad.copyPageTo` (title "Copy Page To…", icon `$(copy)`), both `category: "mdpad"`.
+- [x] Commands `scribeaside.switchToTeam` (title "Switch to Team Notes", icon `$(organization)`) and
+  `scribeaside.copyPageTo` (title "Copy Page To…", icon `$(copy)`), both `category: "scribeaside"`.
 
 - [x] `view/title` entries, all in `navigation@5` so they occupy the single existing scope-toggle slot:
 
-  - `mdpad.switchToGlobal` — `mdpad.scope == workspace`
-  - `mdpad.switchToTeam` — `mdpad.scope == global && mdpad.teamAvailable`
-  - `mdpad.switchToWorkspace` — `mdpad.scope == global && !mdpad.teamAvailable`
-  - `mdpad.switchToWorkspace` — `mdpad.scope == team`
+  - `scribeaside.switchToGlobal` — `scribeaside.scope == workspace`
+  - `scribeaside.switchToTeam` — `scribeaside.scope == global && scribeaside.teamAvailable`
+  - `scribeaside.switchToWorkspace` — `scribeaside.scope == global && !scribeaside.teamAvailable`
+  - `scribeaside.switchToWorkspace` — `scribeaside.scope == team`
 
   The existing `switchToGlobal`/`switchToWorkspace` entries are replaced by these four; leaving the
-  old unconditional `mdpad.scope == global → switchToWorkspace` entry in place would put two buttons
+  old unconditional `scribeaside.scope == global → switchToWorkspace` entry in place would put two buttons
   in the slot whenever a team folder exists.
 
-- [x] `mdpad.copyPageTo` in the overflow group, `2_mdpad@3`.
+- [x] `scribeaside.copyPageTo` in the overflow group, `2_scribeaside@3`.
 
 ### Step 4 — `src/extension.ts`: the registry
 
@@ -125,7 +125,7 @@ interface ScopeEntry {
 ```
 
   `storage` and `available` are getters rather than values because the team entry's storage object is
-  replaced whenever `mdpad.teamNotesFolder` changes, and a captured reference would keep writing to
+  replaced whenever `scribeaside.teamNotesFolder` changes, and a captured reference would keep writing to
   the old folder.
 
 - [x] Rewrite each ternary site as a registry read: `getActiveStorage`, `scopeLabel`, the status-bar
@@ -155,9 +155,9 @@ interface ScopeEntry {
   `../` should not put note files outside the repo they exist to be committed to.
 
 - [x] `buildTeamStorage()` — constructs `FileNotesStorage` with `workspaceState` getters/setters for
-  `mdpad.teamActiveId` and the external-change handler.
+  `scribeaside.teamActiveId` and the external-change handler.
 
-- [x] `publishTeamAvailability()` — sets the `mdpad.teamAvailable` context key. Call it after the
+- [x] `publishTeamAvailability()` — sets the `scribeaside.teamAvailable` context key. Call it after the
   initial probe, after folder creation, and after a configuration reload; a stale key leaves the
   title-bar cycle pointing at a scope that no longer resolves.
 
@@ -180,7 +180,7 @@ interface ScopeEntry {
 
 ### Step 6 — `src/extension.ts`: the two commands
 
-- [x] `mdpad.switchToTeam`:
+- [x] `scribeaside.switchToTeam`:
 
   1. No workspace folder → `showErrorMessage` and return.
   2. Storage not built yet (the workspace was opened after activation) → build it and
@@ -193,7 +193,7 @@ interface ScopeEntry {
   6. Still unavailable → return without switching.
   7. `setScope('team')`.
 
-- [x] `mdpad.copyPageTo`: QuickPick over the other available scopes; `newPage()` on the target followed
+- [x] `scribeaside.copyPageTo`: QuickPick over the other available scopes; `newPage()` on the target followed
   by `updateContent(target.getState().activeId, content)`; confirm with an information message. Does
   not switch scope — copying is for seeding a team folder from notes you already have, and yanking the
   view to the destination would lose your place.
@@ -201,18 +201,18 @@ interface ScopeEntry {
 ### Step 7 — `src/extension.ts`: configuration reload
 
 - [x] In the existing `onDidChangeConfiguration` handler (`:475-487`), add a
-  `mdpad.teamNotesFolder` branch that flushes and disposes the old storage, rebuilds, re-initializes,
+  `scribeaside.teamNotesFolder` branch that flushes and disposes the old storage, rebuilds, re-initializes,
   republishes availability, and — when the team scope is current — either falls back to Workspace or
   refreshes.
 
-  ⚠ The handler's first branch is `affectsConfiguration('mdpad')`, which is true for this key too and
+  ⚠ The handler's first branch is `affectsConfiguration('ScribeAside')`, which is true for this key too and
   will send a `settings` message to the webview. That is harmless (the webview ignores unknown fields)
   but it means the new branch must be additive, not an `else if`, or the folder change will be
-  swallowed whenever any other mdpad setting changed in the same event.
+  swallowed whenever any other ScribeAside setting changed in the same event.
 
 ### Step 8 — tests
 
-- [x] `src/test/integration/extension.test.ts`: add `mdpad.switchToTeam` and `mdpad.copyPageTo` to
+- [x] `src/test/integration/extension.test.ts`: add `scribeaside.switchToTeam` and `scribeaside.copyPageTo` to
   `expectedCommands`. This list is the repo's guard that a contributed command actually registers.
 
 - [x] `src/test/e2e/messaging.spec.ts`: `replaceContent` replaces the document; it does **not** focus
@@ -243,21 +243,21 @@ Ordered so a failure isolates, controls first:
 
 4. **Manual, needs a real workspace — OUTSTANDING, needs a human — the paths no automated test in this repo can reach:**
 
-   - **Regression control first.** With no `.mdpad` folder present, the title-bar button still toggles
+   - **Regression control first.** With no `.scribeaside` folder present, the title-bar button still toggles
      Workspace ↔ Global exactly as before, and the page picker lists both scopes and nothing else.
      Step 4 rewrote both of those paths, so they get their own check before any new behaviour.
-   - Run **mdpad: Switch to Team Notes** in a workspace with no `.mdpad`; accept the prompt; confirm
+   - Run **ScribeAside: Switch to Team Notes** in a workspace with no `.scribeaside`; accept the prompt; confirm
      the folder appears, the view switches, and the title bar now cycles through three scopes.
-   - Type into the team page; after ~300 ms a `note-YYYYMMDD-HHmmss.md` appears in `.mdpad` with the
+   - Type into the team page; after ~300 ms a `note-YYYYMMDD-HHmmss.md` appears in `.scribeaside` with the
      text in it. Create a page and do *not* type: no file appears — that is the lazy-write rule, not a
      bug.
-   - Edit that file in a normal VS Code editor tab and save. The mdpad view updates to match, and the
-     cursor does **not** jump into mdpad from wherever you were.
-   - Delete a page from mdpad; the file disappears. Delete a file from the explorer; the page
+   - Edit that file in a normal VS Code editor tab and save. The ScribeAside view updates to match, and the
+     cursor does **not** jump into ScribeAside from wherever you were.
+   - Delete a page from ScribeAside; the file disappears. Delete a file from the explorer; the page
      disappears and the view moves to a neighbour.
-   - Run **mdpad: Copy Page To…** from Workspace scope, pick Team, and confirm a new file appears
+   - Run **ScribeAside: Copy Page To…** from Workspace scope, pick Team, and confirm a new file appears
      while the view stays on the Workspace page.
-   - Change `mdpad.teamNotesFolder` to `notes` while in Team scope: with no `notes` folder present the
+   - Change `scribeaside.teamNotesFolder` to `notes` while in Team scope: with no `notes` folder present the
      scope falls back to Workspace and the title-bar cycle drops to two stops.
    - Clone the workspace to a second folder, edit the same page in both, and confirm the conflict is
      an ordinary git conflict in one file — the documented last-writer-wins policy, not silent loss.
@@ -276,6 +276,6 @@ Ordered so a failure isolates, controls first:
   commit in someone's working tree they did not ask for.
 
 - **Rename and reorder UI** stays out for the reason in `02`: filenames are identity, so a rename is a
-  delete plus an add, and doing that from inside mdpad would rewrite git history for a cosmetic edit.
+  delete plus an add, and doing that from inside ScribeAside would rewrite git history for a cosmetic edit.
 
 Everything lands bare per the repo's conventions — the reasoning stays in this doc, not in the code.

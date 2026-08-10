@@ -33,7 +33,7 @@ test.describe('messaging', () => {
   })
 
   // `replaceContent` carries an edit someone else made to the underlying file.
-  // It must update the document without pulling the caret into mdpad, which is
+  // It must update the document without pulling the caret into scribeaside, which is
   // the one thing that separates it from `init`.
   test.describe('replaceContent', () => {
     // Counts calls to EditorView.focus() rather than reading .cm-focused: the
@@ -42,12 +42,12 @@ test.describe('messaging', () => {
     const spyOnFocus = (page: import('@playwright/test').Page) =>
       page.evaluate(() => {
         const w = window as unknown as {
-          __mdpadView: { focus: () => void }
+          __scribeasideView: { focus: () => void }
           __focusCalls: number
         }
         w.__focusCalls = 0
-        const original = w.__mdpadView.focus.bind(w.__mdpadView)
-        w.__mdpadView.focus = () => {
+        const original = w.__scribeasideView.focus.bind(w.__scribeasideView)
+        w.__scribeasideView.focus = () => {
           w.__focusCalls++
           original()
         }

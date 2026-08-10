@@ -4,8 +4,8 @@ import { handleWebviewMessage } from './handleWebviewMessage'
 import type { INotesStorage } from './storageTypes'
 import type {
   ExtensionMessage,
-  MdpadCommand,
-  MdpadSettings,
+  ScribeAsideCommand,
+  ScribeAsideSettings,
   WebviewMessage,
 } from './webview/types'
 
@@ -28,8 +28,8 @@ export class PanelProvider {
     }
 
     this.panel = vscode.window.createWebviewPanel(
-      'mdpad.panel',
-      'mdpad',
+      'scribeaside.panel',
+      'ScribeAside',
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -56,7 +56,7 @@ export class PanelProvider {
     const viewStateDisposable = this.panel.onDidChangeViewState(e => {
       vscode.commands.executeCommand(
         'setContext',
-        'mdpad.focused',
+        'scribeaside.focused',
         e.webviewPanel.active,
       )
       this.onFocusChange?.(e.webviewPanel.active)
@@ -66,14 +66,18 @@ export class PanelProvider {
       messageDisposable.dispose()
       viewStateDisposable.dispose()
       this.panel = undefined
-      vscode.commands.executeCommand('setContext', 'mdpad.focused', false)
-      vscode.commands.executeCommand('setContext', 'mdpad.inEditor', false)
+      vscode.commands.executeCommand('setContext', 'scribeaside.focused', false)
+      vscode.commands.executeCommand(
+        'setContext',
+        'scribeaside.inEditor',
+        false,
+      )
       this.onFocusChange?.(false)
       this.onDidDispose()
     })
 
-    vscode.commands.executeCommand('setContext', 'mdpad.focused', true)
-    vscode.commands.executeCommand('setContext', 'mdpad.inEditor', true)
+    vscode.commands.executeCommand('setContext', 'scribeaside.focused', true)
+    vscode.commands.executeCommand('setContext', 'scribeaside.inEditor', true)
     this.onFocusChange?.(true)
   }
 
@@ -94,13 +98,13 @@ export class PanelProvider {
     }
   }
 
-  postCommand(command: MdpadCommand): void {
+  postCommand(command: ScribeAsideCommand): void {
     if (this.panel) {
       this.panel.webview.postMessage({ type: 'command', command })
     }
   }
 
-  sendSettings(settings: MdpadSettings): void {
+  sendSettings(settings: ScribeAsideSettings): void {
     if (this.panel) {
       this.panel.webview.postMessage({ type: 'settings', ...settings })
     }

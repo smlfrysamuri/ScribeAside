@@ -16,7 +16,7 @@ export type WebviewMessage =
   | { type: 'focusChange'; focused: boolean }
   | { type: 'exitReaderMode' }
 
-export type MdpadCommand =
+export type ScribeAsideCommand =
   | 'toggleBold'
   | 'toggleItalic'
   | 'toggleStrikethrough'
@@ -26,7 +26,7 @@ export type MdpadCommand =
 
 export type SyntaxMode = 'muted' | 'hidden'
 
-export interface MdpadSettings {
+export interface ScribeAsideSettings {
   fontFamily: string
   lineHeight: number
   listIndentSize: number
@@ -40,7 +40,7 @@ export interface MdpadSettings {
 export type ExtensionMessage =
   | { type: 'init'; content: string }
   | { type: 'replaceContent'; content: string }
-  | { type: 'command'; command: MdpadCommand }
-  | ({ type: 'settings' } & MdpadSettings)
+  | { type: 'command'; command: ScribeAsideCommand }
+  | ({ type: 'settings' } & ScribeAsideSettings)
   | { type: 'setCursor'; pos: number }
   | { type: 'setReaderMode'; enabled: boolean }

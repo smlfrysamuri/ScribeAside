@@ -53,13 +53,13 @@ describe('renderMarkdown', () => {
       const html = renderMarkdown('- [x] done\n- [ ] todo')
       assert.match(
         html,
-        /<input class="mdpad-task-checkbox" type="checkbox" disabled checked> done/,
+        /<input class="scribeaside-task-checkbox" type="checkbox" disabled checked> done/,
       )
       assert.match(
         html,
-        /<input class="mdpad-task-checkbox" type="checkbox" disabled> todo/,
+        /<input class="scribeaside-task-checkbox" type="checkbox" disabled> todo/,
       )
-      assert.match(html, /class="mdpad-task-item"/)
+      assert.match(html, /class="scribeaside-task-item"/)
     })
 
     it('leaves plain list items untouched', () => {

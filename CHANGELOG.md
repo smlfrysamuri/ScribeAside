@@ -1,4 +1,6 @@
-# mdpad
+# ScribeAside
+
+ScribeAside is a standalone fork of [mdpad](https://github.com/tbekaert/vscode-mdpad) by tbekaert. Entries for 0.4.1 and earlier are inherited from mdpad and are left verbatim — they describe commands and settings under the old `mdpad.*` prefix, which ScribeAside renamed to `scribeaside.*`.
 
 ## 0.4.1
 

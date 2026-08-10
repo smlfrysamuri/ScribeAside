@@ -2,9 +2,9 @@ import type * as vscode from 'vscode'
 import type { INotesStorage } from './storageTypes'
 import type { NotesState, Page } from './webview/types'
 
-const STORAGE_KEY = 'mdpad.notes'
+const STORAGE_KEY = 'scribeaside.notes'
 
-const WELCOME_CONTENT = `# Welcome to mdpad
+const WELCOME_CONTENT = `# Welcome to ScribeAside
 
 Your markdown notepad inside VS Code.
 
@@ -51,7 +51,7 @@ Your markdown notepad inside VS Code.
 
 - Title bar icon: switch note scope — Workspace, Global, and Team once a team notes folder exists
 - Overflow menu: Export, Copy Page To..., Settings
-- Prefer reading over markup? Set \`mdpad.syntaxMode\` to \`hidden\`.
+- Prefer reading over markup? Set \`scribeaside.syntaxMode\` to \`hidden\`.
 - Want it fully rendered? Press \`Cmd/Ctrl+Shift+V\` for reader mode — press again (or double-click) to edit.
 
 > Delete this page whenever you're ready to start fresh.
@@ -150,7 +150,7 @@ export class NotesStorage implements INotesStorage {
   private setState(state: NotesState): void {
     this.cachedState = state
     this.state.update(STORAGE_KEY, state).then(undefined, err => {
-      console.error('[mdpad] Failed to persist state:', err)
+      console.error('[ScribeAside] Failed to persist state:', err)
     })
   }
 }

@@ -123,7 +123,7 @@ const fs = {
     return Promise.resolve(new TextEncoder().encode(entry.content))
   },
   // Mirrors the real workspace.fs.writeFile, which creates missing parent
-  // directories. A stricter stub would hide the case where mdpad writes into
+  // directories. A stricter stub would hide the case where scribeaside writes into
   // a folder the user deleted and silently brings it back.
   writeFile: async (uri: FakeUri, bytes: Uint8Array): Promise<void> => {
     record('workspace.fs.writeFile', [uri.toString()])

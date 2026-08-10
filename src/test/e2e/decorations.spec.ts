@@ -10,81 +10,93 @@ const gotoLine = async (
 }
 
 test.describe('decorations', () => {
-  test('bold text gets mdpad-bold class', async ({ page }) => {
+  test('bold text gets scribeaside-bold class', async ({ page }) => {
     await initEditor(page, '**bold text**')
-    await expect(page.locator('.mdpad-bold').first()).toHaveText('bold text')
+    await expect(page.locator('.scribeaside-bold').first()).toHaveText(
+      'bold text',
+    )
   })
 
-  test('italic text gets mdpad-italic class', async ({ page }) => {
+  test('italic text gets scribeaside-italic class', async ({ page }) => {
     await initEditor(page, '*italic*')
-    await expect(page.locator('.mdpad-italic').first()).toHaveText('italic')
+    await expect(page.locator('.scribeaside-italic').first()).toHaveText(
+      'italic',
+    )
   })
 
-  test('strikethrough gets mdpad-strike class', async ({ page }) => {
+  test('strikethrough gets scribeaside-strike class', async ({ page }) => {
     await initEditor(page, '~~strike~~')
-    await expect(page.locator('.mdpad-strike').first()).toHaveText('strike')
+    await expect(page.locator('.scribeaside-strike').first()).toHaveText(
+      'strike',
+    )
   })
 
-  test('inline code gets mdpad-inline-code class', async ({ page }) => {
+  test('inline code gets scribeaside-inline-code class', async ({ page }) => {
     await initEditor(page, '`code`')
-    await expect(page.locator('.mdpad-inline-code').first()).toHaveText('code')
+    await expect(page.locator('.scribeaside-inline-code').first()).toHaveText(
+      'code',
+    )
   })
 
-  test('highlight gets mdpad-highlight class', async ({ page }) => {
+  test('highlight gets scribeaside-highlight class', async ({ page }) => {
     await initEditor(page, '==highlighted==')
-    await expect(page.locator('.mdpad-highlight').first()).toHaveText(
+    await expect(page.locator('.scribeaside-highlight').first()).toHaveText(
       'highlighted',
     )
   })
 
-  test('heading 1 gets mdpad-heading-1 class', async ({ page }) => {
+  test('heading 1 gets scribeaside-heading-1 class', async ({ page }) => {
     await initEditor(page, '# heading')
-    await expect(page.locator('.mdpad-heading-1')).toHaveText('heading')
+    await expect(page.locator('.scribeaside-heading-1')).toHaveText('heading')
   })
 
-  test('heading 2 gets mdpad-heading-2 class', async ({ page }) => {
+  test('heading 2 gets scribeaside-heading-2 class', async ({ page }) => {
     await initEditor(page, '## heading')
-    await expect(page.locator('.mdpad-heading-2')).toHaveText('heading')
+    await expect(page.locator('.scribeaside-heading-2')).toHaveText('heading')
   })
 
   test('markdown syntax is muted', async ({ page }) => {
     await initEditor(page, '# heading')
-    const mutedCount = await page.locator('.mdpad-muted').count()
+    const mutedCount = await page.locator('.scribeaside-muted').count()
     expect(mutedCount).toBeGreaterThan(0)
   })
 
   test('link text is decorated', async ({ page }) => {
     await initEditor(page, '[link text](https://example.com)')
-    await expect(page.locator('.mdpad-link-text').first()).toHaveText(
+    await expect(page.locator('.scribeaside-link-text').first()).toHaveText(
       'link text',
     )
   })
 
   test('task list checkbox is decorated', async ({ page }) => {
     await initEditor(page, '- [ ] task')
-    await expect(page.locator('.mdpad-task-bracket').first()).toHaveText('[ ]')
+    await expect(page.locator('.scribeaside-task-bracket').first()).toHaveText(
+      '[ ]',
+    )
   })
 
   test('checked task has strikethrough class', async ({ page }) => {
     await initEditor(page, '- [x] done')
-    await expect(page.locator('.mdpad-task-checked').first()).toHaveText('done')
+    await expect(page.locator('.scribeaside-task-checked').first()).toHaveText(
+      'done',
+    )
   })
 
   test('unordered list marker is decorated', async ({ page }) => {
     await initEditor(page, '- item')
-    const bulletCount = await page.locator('.mdpad-list-bullet').count()
+    const bulletCount = await page.locator('.scribeaside-list-bullet').count()
     expect(bulletCount).toBeGreaterThan(0)
   })
 
   test('numbered list marker is muted', async ({ page }) => {
     await initEditor(page, '1. item')
-    const mutedCount = await page.locator('.mdpad-muted').count()
+    const mutedCount = await page.locator('.scribeaside-muted').count()
     expect(mutedCount).toBeGreaterThan(0)
   })
 
   test('supports `)` suffix for ordered lists', async ({ page }) => {
     await initEditor(page, '1) item')
-    const mutedCount = await page.locator('.mdpad-muted').count()
+    const mutedCount = await page.locator('.scribeaside-muted').count()
     expect(mutedCount).toBeGreaterThan(0)
   })
 
@@ -111,7 +123,7 @@ test.describe('decorations', () => {
 
     for (let i = 0; i < 3; i++) {
       const lineText = await lines[i].textContent()
-      const mutedInLine = await lines[i].locator('.mdpad-muted').count()
+      const mutedInLine = await lines[i].locator('.scribeaside-muted').count()
       expect(
         mutedInLine,
         `line ${i + 1} (${lineText}) should have muted marker`,
@@ -119,15 +131,17 @@ test.describe('decorations', () => {
     }
   })
 
-  test('blockquote gets mdpad-blockquote class', async ({ page }) => {
+  test('blockquote gets scribeaside-blockquote class', async ({ page }) => {
     await initEditor(page, '> quoted')
-    const blockquoteCount = await page.locator('.mdpad-blockquote').count()
+    const blockquoteCount = await page
+      .locator('.scribeaside-blockquote')
+      .count()
     expect(blockquoteCount).toBeGreaterThan(0)
   })
 
   test('frontmatter keys are muted', async ({ page }) => {
     await initEditor(page, '---\ntitle: Test\n---\n\ncontent')
-    const mutedCount = await page.locator('.mdpad-muted').count()
+    const mutedCount = await page.locator('.scribeaside-muted').count()
     expect(mutedCount).toBeGreaterThan(0)
   })
 
@@ -143,16 +157,20 @@ test.describe('decorations', () => {
       // Both `---` fence lines should be fully muted
       const firstFence = page.locator('.cm-line').nth(0)
       const closingFence = page.locator('.cm-line').nth(3)
-      await expect(firstFence.locator('.mdpad-muted')).not.toHaveCount(0)
-      await expect(closingFence.locator('.mdpad-muted')).not.toHaveCount(0)
+      await expect(firstFence.locator('.scribeaside-muted')).not.toHaveCount(0)
+      await expect(closingFence.locator('.scribeaside-muted')).not.toHaveCount(
+        0,
+      )
 
       // key prefixes (up to and including `:`) are muted on the key lines
       const titleLine = page.locator('.cm-line').nth(1)
       const tagsLine = page.locator('.cm-line').nth(2)
-      await expect(titleLine.locator('.mdpad-muted').first()).toHaveText(
+      await expect(titleLine.locator('.scribeaside-muted').first()).toHaveText(
         'title:',
       )
-      await expect(tagsLine.locator('.mdpad-muted').first()).toHaveText('tags:')
+      await expect(tagsLine.locator('.scribeaside-muted').first()).toHaveText(
+        'tags:',
+      )
     })
 
     test('unterminated frontmatter does not mute key prefixes as frontmatter', async ({
@@ -164,7 +182,9 @@ test.describe('decorations', () => {
       // inside a real fenced block).
       await initEditor(page, '---\nkey: value\nstill body')
       const keyLine = page.locator('.cm-line').nth(1)
-      const mutedSpans = await keyLine.locator('.mdpad-muted').allTextContents()
+      const mutedSpans = await keyLine
+        .locator('.scribeaside-muted')
+        .allTextContents()
       for (const t of mutedSpans) {
         expect(t).not.toMatch(/^key:\s*$/)
       }
@@ -174,10 +194,12 @@ test.describe('decorations', () => {
       page,
     }) => {
       await initEditor(page, '---\n# not a heading\n---\n\n# real heading')
-      const headingCount = await page.locator('.mdpad-heading-1').count()
+      const headingCount = await page.locator('.scribeaside-heading-1').count()
       // Only the real heading on line 5 should get the heading decoration
       expect(headingCount).toBe(1)
-      await expect(page.locator('.mdpad-heading-1')).toHaveText('real heading')
+      await expect(page.locator('.scribeaside-heading-1')).toHaveText(
+        'real heading',
+      )
     })
   })
 })
@@ -223,7 +245,7 @@ test.describe('decorations — hidden mode', () => {
   test('blockquote prefix is collapsed', async ({ page }) => {
     await initEditor(page, 'anchor\n> quoted', HIDDEN)
     expect(await lineText(page, 1)).toBe('quoted')
-    await expect(page.locator('.mdpad-blockquote')).not.toHaveCount(0)
+    await expect(page.locator('.scribeaside-blockquote')).not.toHaveCount(0)
   })
 
   test('task bullet is collapsed but the checkbox stays visible', async ({
@@ -231,15 +253,17 @@ test.describe('decorations — hidden mode', () => {
   }) => {
     await initEditor(page, 'anchor\n- [ ] task', HIDDEN)
     expect(await lineText(page, 1)).toBe('[ ] task')
-    await expect(page.locator('.mdpad-task-bracket').first()).toHaveText('[ ]')
+    await expect(page.locator('.scribeaside-task-bracket').first()).toHaveText(
+      '[ ]',
+    )
   })
 
   test('content styling still applies to collapsed constructs', async ({
     page,
   }) => {
     await initEditor(page, 'anchor\n## heading\n**bold**', HIDDEN)
-    await expect(page.locator('.mdpad-heading-2')).toHaveText('heading')
-    await expect(page.locator('.mdpad-bold').first()).toHaveText('bold')
+    await expect(page.locator('.scribeaside-heading-2')).toHaveText('heading')
+    await expect(page.locator('.scribeaside-bold').first()).toHaveText('bold')
   })
 
   test('tables, fences and frontmatter are left muted', async ({ page }) => {

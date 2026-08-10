@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`mdpad` is a VS Code extension for writing markdown notes directly inside the editor. It uses a muted-syntax approach: markdown characters stay visible but dimmed, while content is styled live (headings are large, bold is bold, etc.). No preview pane, no mode switching — just type and see.
+ScribeAside is a VS Code extension for writing markdown notes directly inside the editor. It uses a muted-syntax approach: markdown characters stay visible but dimmed, while content is styled live (headings are large, bold is bold, etc.). Optional hidden-syntax and fully rendered reader modes sit on top of that.
 
-Forked from the abandoned `sidebar-markdown-notes` extension, fully rewritten with CodeMirror 6.
+Lineage: the abandoned `sidebar-markdown-notes` extension was rewritten with CodeMirror 6 as `mdpad` by tbekaert; ScribeAside is a standalone fork of `mdpad` maintained by smlfrysamuri. Everything is GPL-3.0-or-later. Identifiers use the `scribeaside` prefix throughout — no `mdpad.*` command, setting, or storage key is read for backwards compatibility.
 
 ## Commands
 
@@ -38,7 +38,7 @@ pnpm changeset status  # Show pending changesets
 Two webpack bundles from one config file:
 
 **Extension host** (`dist/extension.js`, target: node):
-- `src/extension.ts` — Entry point. `activate` is async (it probes the team-notes folder before registering anything) and `deactivate` returns a promise (it flushes pending team-notes writes). Triple storage (workspace + global + team) routed through a `Record<Scope, ScopeEntry>` registry — add a scope by adding a row, never by adding a ternary arm. Settings Sync for global notes. Commands: `openInEditor`, `focusNotes`, `newPage`, `deletePage`, `previousPage`, `nextPage`, `exportPage`, `copyPageTo`, `switchToGlobal/Workspace/Team`, `enterReaderMode`/`exitReaderMode` (`Cmd/Ctrl+Shift+V` toggles via complementary `when` clauses), `toggleBold/Italic/Strikethrough/Code/Highlight/Heading`. Reader-mode state is host-owned (`globalState['mdpad.readerMode']` + context key), pushed to the webview as `{type: 'setReaderMode'}`; the webview never flips itself. Settings and reader state are re-sent on every webview `ready` (the `onReady` handler) because sidebar webviews are torn down on collapse. Formatting commands post a `{type: 'command', command}` message to the active webview — keybindings live in `package.json` (all scoped to `when: mdpad.focused`) so formatting works uniformly as `Cmd/Ctrl+letter` and page actions (`Cmd/Ctrl+N` new, `Cmd/Ctrl+W` delete, `Cmd/Ctrl+Shift+[` / `Cmd/Ctrl+Shift+]` prev/next) fire only while the mdpad webview is focused on both macOS and Windows/Linux.
+- `src/extension.ts` — Entry point. `activate` is async (it probes the team-notes folder before registering anything) and `deactivate` returns a promise (it flushes pending team-notes writes). Triple storage (workspace + global + team) routed through a `Record<Scope, ScopeEntry>` registry — add a scope by adding a row, never by adding a ternary arm. Settings Sync for global notes. Commands: `openInEditor`, `focusNotes`, `newPage`, `deletePage`, `previousPage`, `nextPage`, `exportPage`, `copyPageTo`, `switchToGlobal/Workspace/Team`, `enterReaderMode`/`exitReaderMode` (`Cmd/Ctrl+Shift+V` toggles via complementary `when` clauses), `toggleBold/Italic/Strikethrough/Code/Highlight/Heading`. Reader-mode state is host-owned (`globalState['scribeaside.readerMode']` + context key), pushed to the webview as `{type: 'setReaderMode'}`; the webview never flips itself. Settings and reader state are re-sent on every webview `ready` (the `onReady` handler) because sidebar webviews are torn down on collapse. Formatting commands post a `{type: 'command', command}` message to the active webview — keybindings live in `package.json` (all scoped to `when: scribeaside.focused`) so formatting works uniformly as `Cmd/Ctrl+letter` and page actions (`Cmd/Ctrl+N` new, `Cmd/Ctrl+W` delete, `Cmd/Ctrl+Shift+[` / `Cmd/Ctrl+Shift+]` prev/next) fire only while the scribeaside webview is focused on both macOS and Windows/Linux.
 - `src/SidebarProvider.ts` — `WebviewViewProvider` for the Explorer sidebar. Accepts storage getter for scope switching.
 - `src/PanelProvider.ts` — Singleton `WebviewPanel` for floating editor. Exclusive mode: only sidebar or panel active at a time. Accepts storage getter for scope switching.
 - `src/storageTypes.ts` — `INotesStorage`, the structural contract both storages satisfy. Host-only; never import it from `webview/`.
@@ -52,7 +52,7 @@ Two webpack bundles from one config file:
 
 **Webview** (`dist/webview.js`, target: web):
 - `src/webview/index.ts` — Entry point. Mounts editor, handles postMessage, owns the reader-mode container and its guards.
-- `src/webview/editor.ts` — CodeMirror 6 with GFM, VS Code theme, list indent/outdent (`Tab`/`Shift-Tab`), ordered-list continuation on `Enter`, paste-as-link, auto-close fences. Uses a `codeMirrorSettings` Compartment for live setting reconfiguration (font, line height, heading scale, line numbers, line wrapping, folding). Formatting shortcuts (bold/italic/strike/code/highlight/heading) are NOT in the CodeMirror keymap — they are handled by the extension host via `package.json` keybindings and the `MdpadCommand` message protocol; `src/webview/index.ts` applies them with `wrapSelection` / `toggleHeading`.
+- `src/webview/editor.ts` — CodeMirror 6 with GFM, VS Code theme, list indent/outdent (`Tab`/`Shift-Tab`), ordered-list continuation on `Enter`, paste-as-link, auto-close fences. Uses a `codeMirrorSettings` Compartment for live setting reconfiguration (font, line height, heading scale, line numbers, line wrapping, folding). Formatting shortcuts (bold/italic/strike/code/highlight/heading) are NOT in the CodeMirror keymap — they are handled by the extension host via `package.json` keybindings and the `ScribeAsideCommand` message protocol; `src/webview/index.ts` applies them with `wrapSelection` / `toggleHeading`.
 - `src/webview/decorations.ts` — Syntax-decoration ViewPlugin, built as a factory `markdownDecorations(mode)`. `scanDecorations` walks the tree and the regex passes once and emits *tagged entries*; `materialize` turns entries into ranges per mode. Click handlers for checkboxes and links read `state.doc`, never the DOM, so they work in both modes.
 - `src/webview/hiddenRanges.ts` — the pure, DOM-free half of hidden mode: `mergeRanges`, `computeActiveLines`, `isRevealed`, `materialize`, and the `HIDEABLE_CONSTRUCTS` policy. Unit-tested with nothing heavier than an `EditorState`.
 - `src/webview/editor.ts` contains section folding: `foldService` for H2/H3/frontmatter fold ranges, `foldGutter` (with line numbers), inline `FoldWidget` (without line numbers).
@@ -61,20 +61,20 @@ Two webpack bundles from one config file:
 - `src/webview/tableFormatter.ts` — Auto-aligns table columns on 500ms debounce after edits.
 - `src/webview/renderer.ts` — `renderMarkdown` for reader mode: markdown-it (`html: false`, so raw HTML is escaped) + markdown-it-mark + a local disabled-checkbox task-list rule; fenced code highlighted with the same `codeLanguages` grammars via `classHighlighter` (`tok-*` classes styled in CSS with the same theme variables as the editor's `codeHighlight` palette). While reading, the webview drops `command`/`setCursor` messages and re-renders on `init`/`replaceContent`; double-click posts `exitReaderMode`.
 - `src/webview/styles.css` — All styles: layout, VS Code CSS variable mapping, decoration classes.
-- `src/webview/types.ts` — Shared types: Page, NotesState, MdpadSettings, message protocol.
+- `src/webview/types.ts` — Shared types: Page, NotesState, ScribeAsideSettings, message protocol.
 
 **E2E tests** (`src/test/e2e/`, target: browser via Playwright):
 - `harness.html` — standalone HTML with mocked `acquireVsCodeApi` that loads `dist/webview.js`. Used by Playwright tests to exercise the webview outside VS Code.
 - `utils.ts` — shared helpers: `initEditor`, `sendMessage`, `getPostedMessages`, `getCursorPos`, etc.
 - `*.spec.ts` — one file per feature domain (e.g. `lists.spec.ts`, `shortcuts.spec.ts`, `decorations.spec.ts`, `settings.spec.ts`). See conventions below.
 
-The webview exposes its `EditorView` on `window.__mdpadView` for test inspection.
+The webview exposes its `EditorView` on `window.__scribeasideView` for test inspection.
 
 ## Key Design Decision
 
 **Muted syntax is the default and must stay byte-identical.** All markdown characters stay visible but dimmed using `--vscode-editorLineNumber-foreground`. No widget replacements, no raw mode toggle. This avoids layout jumps, cursor issues, and CPU spikes from the original Typora-style approach.
 
-`mdpad.syntaxMode: "hidden"` is opt-in on top of that: markers on lines no selection touches are collapsed with zero-width `Decoration.replace({})`, revealing again the moment the cursor arrives. Two rules make it safe to keep:
+`scribeaside.syntaxMode: "hidden"` is opt-in on top of that: markers on lines no selection touches are collapsed with zero-width `Decoration.replace({})`, revealing again the moment the cursor arrives. Two rules make it safe to keep:
 
 - **Muted mode must emit the identical decoration set, in the identical order.** Order decides DOM nesting, so `materialize`'s muted branch walks entries in emission order and converts one-for-one. Anything that regroups, sorts, or filters there is a behaviour change even when every range is the same. The same reason keeps the decoration plugin in its own `Compartment` at its original position in `createEditor`'s extension list rather than inside `buildSettingsExtensions` — moving it would reorder decoration precedence against `syntaxHighlighting`.
 - **Hidden ranges are merged before any replace is emitted**, which makes partial overlap between two replace decorations impossible by construction. Markers never span a line break, and nothing inside a code block is ever collapsed — hidden mode must not change what a code block appears to contain.
@@ -85,27 +85,27 @@ A marker's muted span and its hidden span can differ (`hideFrom`/`hideTo`): a ta
 
 ## Settings Sync
 
-Global notes can optionally be synced across devices via VS Code's Settings Sync (`context.globalState.setKeysForSync`). This is **opt-in** (disabled by default via `mdpad.syncGlobalNotes`) because there is no VS Code API to remove data from the sync remote once it's been synced. Disabling the setting stops future syncing but does not delete already-synced data.
+Global notes can optionally be synced across devices via VS Code's Settings Sync (`context.globalState.setKeysForSync`). This is **opt-in** (disabled by default via `scribeaside.syncGlobalNotes`) because there is no VS Code API to remove data from the sync remote once it's been synced. Disabling the setting stops future syncing but does not delete already-synced data.
 
 ## Team notes
 
-The third scope is backed by a folder of `.md` files (`mdpad.teamNotesFolder`, default `.mdpad`) so a team can commit them. **The filename is `Page.id`** and ordering is the alphabetical filename sort — there is deliberately no index file, because an index is a merge hotspot that conflicts on exactly the case the feature exists for (two people adding notes). Files are never renamed on a title change; that would rewrite git history for a cosmetic edit.
+The third scope is backed by a folder of `.md` files (`scribeaside.teamNotesFolder`, default `.scribeaside`) so a team can commit them. **The filename is `Page.id`** and ordering is the alphabetical filename sort — there is deliberately no index file, because an index is a merge hotspot that conflicts on exactly the case the feature exists for (two people adding notes). Files are never renamed on a title change; that would rewrite git history for a cosmetic edit.
 
-`activeId` is per-user (`workspaceState['mdpad.teamActiveId']`) and never written into the folder. Conflict policy is last-writer-wins, documented in the README; there is no merge UI.
+`activeId` is per-user (`workspaceState['scribeaside.teamActiveId']`) and never written into the folder. Conflict policy is last-writer-wins, documented in the README; there is no merge UI.
 
 ## Naming
 
-- Product name: always lowercase `mdpad` in user-facing text (UI, docs, commit messages). PascalCase `Mdpad` is only acceptable in TypeScript type names (e.g. `MdpadSettings`).
-- Command prefix: `mdpad` (use `category: "mdpad"` in package.json, not a title prefix)
-- View ID: `mdpad.notesView`
-- Panel ID: `mdpad.panel`
-- Storage keys: `mdpad.notes` (memento scopes), `mdpad.teamActiveId` (per-user team page pointer)
-- Context keys: `mdpad.focused`, `mdpad.inEditor`, `mdpad.scope` (`workspace` | `global` | `team`), `mdpad.teamAvailable`, `mdpad.readerMode`
-- Storage keys (global): `mdpad.readerMode` (display preference, not a workspace setting)
+- Product name: always PascalCase `ScribeAside` in user-facing text (UI, docs, commit messages) and in TypeScript type names (e.g. `ScribeAsideSettings`). Lowercase `scribeaside` is the identifier form only — command IDs, settings keys, context keys, CSS classes.
+- Command prefix: `scribeaside` (use `category: "ScribeAside"` in package.json, not a title prefix)
+- View ID: `scribeaside.notesView`
+- Panel ID: `scribeaside.panel`
+- Storage keys: `scribeaside.notes` (memento scopes), `scribeaside.teamActiveId` (per-user team page pointer)
+- Context keys: `scribeaside.focused`, `scribeaside.inEditor`, `scribeaside.scope` (`workspace` | `global` | `team`), `scribeaside.teamAvailable`, `scribeaside.readerMode`
+- Storage keys (global): `scribeaside.readerMode` (display preference, not a workspace setting)
 
 ## Manual QA
 
-- `.github/test-content.md` — exercises every mdpad feature. Copy-paste into mdpad for manual QA. **Keep updated** when adding features.
+- `.github/test-content.md` — exercises every scribeaside feature. Copy-paste into scribeaside for manual QA. **Keep updated** when adding features.
 - `.github/welcome-content.md` — the default welcome note shown to new users. **Keep in sync** with `WELCOME_CONTENT` in `src/NotesStorage.ts` when updating either.
 
 ## Conventions

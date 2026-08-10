@@ -1,19 +1,19 @@
 {
-  "name": "mdpad",
-  "displayName": "mdpad",
-  "description": "A lightweight markdown notepad inside VS Code",
-  "version": "0.4.1",
-  "publisher": "tbekaert",
+  "name": "scribeaside",
+  "displayName": "ScribeAside",
+  "description": "A markdown notepad that lives in your VS Code sidebar — muted, hidden, or fully rendered syntax, with workspace, global, and committable team notes.",
+  "version": "0.5.0",
+  "publisher": "smlfrysamuri",
   "packageManager": "pnpm@10.33.0",
   "license": "GPL-3.0-or-later",
   "icon": "images/icon.png",
   "repository": {
-    "url": "https://github.com/tbekaert/vscode-mdpad",
+    "url": "https://github.com/smlfrysamuri/ScribeAside",
     "type": "git"
   },
-  "homepage": "https://github.com/tbekaert/vscode-mdpad#readme",
+  "homepage": "https://github.com/smlfrysamuri/ScribeAside#readme",
   "bugs": {
-    "url": "https://github.com/tbekaert/vscode-mdpad/issues"
+    "url": "https://github.com/smlfrysamuri/ScribeAside/issues"
   },
   "keywords": [
     "markdown",
@@ -23,7 +23,7 @@
     "editor"
   ],
   "engines": {
-    "vscode": "^1.85.0",
+    "vscode": "^1.116.0",
     "node": ">=24"
   },
   "extensionKind": [
@@ -42,368 +42,368 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "mdpad",
-          "title": "mdpad",
+          "id": "scribeaside",
+          "title": "ScribeAside",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "views": {
-      "mdpad": [
+      "scribeaside": [
         {
           "type": "webview",
-          "id": "mdpad.notesView",
-          "name": "mdpad"
+          "id": "scribeaside.notesView",
+          "name": "ScribeAside"
         }
       ]
     },
     "commands": [
       {
-        "command": "mdpad.openInEditor",
+        "command": "scribeaside.openInEditor",
         "title": "Open in Editor",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(notebook)"
       },
       {
-        "command": "mdpad.focusNotes",
+        "command": "scribeaside.focusNotes",
         "title": "Focus Notes",
-        "category": "mdpad"
+        "category": "ScribeAside"
       },
       {
-        "command": "mdpad.previousPage",
+        "command": "scribeaside.previousPage",
         "title": "Previous Page",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(arrow-left)"
       },
       {
-        "command": "mdpad.nextPage",
+        "command": "scribeaside.nextPage",
         "title": "Next Page",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(arrow-right)"
       },
       {
-        "command": "mdpad.selectPage",
+        "command": "scribeaside.selectPage",
         "title": "Select Page",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(list-flat)"
       },
       {
-        "command": "mdpad.newPage",
+        "command": "scribeaside.newPage",
         "title": "New Page",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(add)"
       },
       {
-        "command": "mdpad.deletePage",
+        "command": "scribeaside.deletePage",
         "title": "Delete Current Page",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(trash)"
       },
       {
-        "command": "mdpad.switchToGlobal",
+        "command": "scribeaside.switchToGlobal",
         "title": "Switch to Global Notes",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(globe)"
       },
       {
-        "command": "mdpad.switchToWorkspace",
+        "command": "scribeaside.switchToWorkspace",
         "title": "Switch to Workspace Notes",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(root-folder)"
       },
       {
-        "command": "mdpad.switchToTeam",
+        "command": "scribeaside.switchToTeam",
         "title": "Switch to Team Notes",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(organization)"
       },
       {
-        "command": "mdpad.copyPageTo",
+        "command": "scribeaside.copyPageTo",
         "title": "Copy Page To...",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(copy)"
       },
       {
-        "command": "mdpad.enterReaderMode",
+        "command": "scribeaside.enterReaderMode",
         "title": "Show Rendered View",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(open-preview)"
       },
       {
-        "command": "mdpad.exitReaderMode",
+        "command": "scribeaside.exitReaderMode",
         "title": "Show Editor View",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(edit)"
       },
       {
-        "command": "mdpad.searchPages",
+        "command": "scribeaside.searchPages",
         "title": "Search Across Pages",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(search)"
       },
       {
-        "command": "mdpad.find",
+        "command": "scribeaside.find",
         "title": "Find in Note",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(search)"
       },
       {
-        "command": "mdpad.exportPage",
+        "command": "scribeaside.exportPage",
         "title": "Export Current Page",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(export)"
       },
       {
-        "command": "mdpad.openSettings",
+        "command": "scribeaside.openSettings",
         "title": "Open Settings",
-        "category": "mdpad",
+        "category": "ScribeAside",
         "icon": "$(gear)"
       },
       {
-        "command": "mdpad.toggleBold",
+        "command": "scribeaside.toggleBold",
         "title": "Toggle Bold",
-        "category": "mdpad"
+        "category": "ScribeAside"
       },
       {
-        "command": "mdpad.toggleItalic",
+        "command": "scribeaside.toggleItalic",
         "title": "Toggle Italic",
-        "category": "mdpad"
+        "category": "ScribeAside"
       },
       {
-        "command": "mdpad.toggleStrikethrough",
+        "command": "scribeaside.toggleStrikethrough",
         "title": "Toggle Strikethrough",
-        "category": "mdpad"
+        "category": "ScribeAside"
       },
       {
-        "command": "mdpad.toggleCode",
+        "command": "scribeaside.toggleCode",
         "title": "Toggle Inline Code",
-        "category": "mdpad"
+        "category": "ScribeAside"
       },
       {
-        "command": "mdpad.toggleHighlight",
+        "command": "scribeaside.toggleHighlight",
         "title": "Toggle Highlight",
-        "category": "mdpad"
+        "category": "ScribeAside"
       },
       {
-        "command": "mdpad.toggleHeading",
+        "command": "scribeaside.toggleHeading",
         "title": "Cycle Heading Level",
-        "category": "mdpad"
+        "category": "ScribeAside"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "mdpad.previousPage",
+          "command": "scribeaside.previousPage",
           "group": "navigation@0",
-          "when": "view == mdpad.notesView"
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.nextPage",
+          "command": "scribeaside.nextPage",
           "group": "navigation@1",
-          "when": "view == mdpad.notesView"
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.selectPage",
+          "command": "scribeaside.selectPage",
           "group": "navigation@2",
-          "when": "view == mdpad.notesView"
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.enterReaderMode",
+          "command": "scribeaside.enterReaderMode",
           "group": "navigation@3",
-          "when": "view == mdpad.notesView && !mdpad.readerMode"
+          "when": "view == scribeaside.notesView && !scribeaside.readerMode"
         },
         {
-          "command": "mdpad.exitReaderMode",
+          "command": "scribeaside.exitReaderMode",
           "group": "navigation@3",
-          "when": "view == mdpad.notesView && mdpad.readerMode"
+          "when": "view == scribeaside.notesView && scribeaside.readerMode"
         },
         {
-          "command": "mdpad.newPage",
+          "command": "scribeaside.newPage",
           "group": "navigation@4",
-          "when": "view == mdpad.notesView"
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.switchToGlobal",
+          "command": "scribeaside.switchToGlobal",
           "group": "navigation@5",
-          "when": "view == mdpad.notesView && mdpad.scope == workspace"
+          "when": "view == scribeaside.notesView && scribeaside.scope == workspace"
         },
         {
-          "command": "mdpad.switchToTeam",
+          "command": "scribeaside.switchToTeam",
           "group": "navigation@5",
-          "when": "view == mdpad.notesView && mdpad.scope == global && mdpad.teamAvailable"
+          "when": "view == scribeaside.notesView && scribeaside.scope == global && scribeaside.teamAvailable"
         },
         {
-          "command": "mdpad.switchToWorkspace",
+          "command": "scribeaside.switchToWorkspace",
           "group": "navigation@5",
-          "when": "view == mdpad.notesView && mdpad.scope == global && !mdpad.teamAvailable"
+          "when": "view == scribeaside.notesView && scribeaside.scope == global && !scribeaside.teamAvailable"
         },
         {
-          "command": "mdpad.switchToWorkspace",
+          "command": "scribeaside.switchToWorkspace",
           "group": "navigation@5",
-          "when": "view == mdpad.notesView && mdpad.scope == team"
+          "when": "view == scribeaside.notesView && scribeaside.scope == team"
         },
         {
-          "command": "mdpad.searchPages",
-          "group": "2_mdpad@0",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.searchPages",
+          "group": "2_scribeaside@0",
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.find",
-          "group": "2_mdpad@1",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.find",
+          "group": "2_scribeaside@1",
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.openInEditor",
-          "group": "2_mdpad@1",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.openInEditor",
+          "group": "2_scribeaside@1",
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.exportPage",
-          "group": "2_mdpad@2",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.exportPage",
+          "group": "2_scribeaside@2",
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.copyPageTo",
-          "group": "2_mdpad@3",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.copyPageTo",
+          "group": "2_scribeaside@3",
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.deletePage",
-          "group": "3_mdpad@1",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.deletePage",
+          "group": "3_scribeaside@1",
+          "when": "view == scribeaside.notesView"
         },
         {
-          "command": "mdpad.openSettings",
-          "group": "4_mdpad@1",
-          "when": "view == mdpad.notesView"
+          "command": "scribeaside.openSettings",
+          "group": "4_scribeaside@1",
+          "when": "view == scribeaside.notesView"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "mdpad.toggleBold",
+        "command": "scribeaside.toggleBold",
         "key": "ctrl+b",
         "mac": "cmd+b",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.toggleItalic",
+        "command": "scribeaside.toggleItalic",
         "key": "ctrl+i",
         "mac": "cmd+i",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.toggleStrikethrough",
+        "command": "scribeaside.toggleStrikethrough",
         "key": "ctrl+d",
         "mac": "cmd+d",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.toggleCode",
+        "command": "scribeaside.toggleCode",
         "key": "ctrl+k",
         "mac": "cmd+k",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.toggleHighlight",
+        "command": "scribeaside.toggleHighlight",
         "key": "ctrl+e",
         "mac": "cmd+e",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.toggleHeading",
+        "command": "scribeaside.toggleHeading",
         "key": "ctrl+h",
         "mac": "cmd+h",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.find",
+        "command": "scribeaside.find",
         "key": "ctrl+f",
         "mac": "cmd+f",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.searchPages",
+        "command": "scribeaside.searchPages",
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.previousPage",
+        "command": "scribeaside.previousPage",
         "key": "ctrl+shift+[",
         "mac": "cmd+shift+[",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.nextPage",
+        "command": "scribeaside.nextPage",
         "key": "ctrl+shift+]",
         "mac": "cmd+shift+]",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.newPage",
+        "command": "scribeaside.newPage",
         "key": "ctrl+n",
         "mac": "cmd+n",
-        "when": "mdpad.focused"
+        "when": "scribeaside.focused"
       },
       {
-        "command": "mdpad.deletePage",
+        "command": "scribeaside.deletePage",
         "key": "ctrl+w",
         "mac": "cmd+w",
-        "when": "mdpad.focused && !mdpad.inEditor"
+        "when": "scribeaside.focused && !scribeaside.inEditor"
       },
       {
-        "command": "mdpad.enterReaderMode",
+        "command": "scribeaside.enterReaderMode",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "mdpad.focused && !mdpad.readerMode"
+        "when": "scribeaside.focused && !scribeaside.readerMode"
       },
       {
-        "command": "mdpad.exitReaderMode",
+        "command": "scribeaside.exitReaderMode",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "mdpad.focused && mdpad.readerMode"
+        "when": "scribeaside.focused && scribeaside.readerMode"
       },
       {
-        "command": "mdpad.focusNotes",
+        "command": "scribeaside.focusNotes",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m"
       }
     ],
     "configuration": {
-      "title": "mdpad",
+      "title": "ScribeAside",
       "properties": {
-        "mdpad.fontFamily": {
+        "scribeaside.fontFamily": {
           "type": "string",
           "default": "inherit",
           "description": "Font family for the editor. \"inherit\" uses the VS Code theme font."
         },
-        "mdpad.lineHeight": {
+        "scribeaside.lineHeight": {
           "type": "number",
           "default": 1.6,
           "description": "Line height in the editor."
         },
-        "mdpad.lineWrapping": {
+        "scribeaside.lineWrapping": {
           "type": "boolean",
           "default": true,
           "description": "Wrap long lines."
         },
-        "mdpad.folding": {
+        "scribeaside.folding": {
           "type": "boolean",
           "default": false,
           "description": "Enable section folding for H2, H3 headings and frontmatter."
         },
-        "mdpad.listIndentSize": {
+        "scribeaside.listIndentSize": {
           "type": "number",
           "default": 2,
           "description": "Number of spaces per list indent level."
         },
-        "mdpad.lineNumbers": {
+        "scribeaside.lineNumbers": {
           "type": "boolean",
           "default": false,
           "description": "Show line numbers in the gutter."
         },
-        "mdpad.syntaxMode": {
+        "scribeaside.syntaxMode": {
           "type": "string",
           "enum": [
             "muted",
@@ -416,12 +416,12 @@
           "default": "muted",
           "description": "How markdown syntax characters are rendered."
         },
-        "mdpad.teamNotesFolder": {
+        "scribeaside.teamNotesFolder": {
           "type": "string",
-          "default": ".mdpad",
+          "default": ".scribeaside",
           "description": "Folder for team notes, relative to the first workspace folder. One markdown file per page, so the notes can be committed to git."
         },
-        "mdpad.syncGlobalNotes": {
+        "scribeaside.syncGlobalNotes": {
           "type": "boolean",
           "default": false,
           "description": "Sync global notes across devices via VS Code Settings Sync. Opt-in: synced data cannot be removed from the remote once synced."

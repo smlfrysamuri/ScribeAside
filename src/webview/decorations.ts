@@ -22,24 +22,24 @@ import type { SyntaxMode } from './types'
 // Decoration constants
 // ---------------------------------------------------------------------------
 
-const muted = Decoration.mark({ class: 'mdpad-muted' })
+const muted = Decoration.mark({ class: 'scribeaside-muted' })
 
-const boldMark = Decoration.mark({ class: 'mdpad-bold' })
-const italicMark = Decoration.mark({ class: 'mdpad-italic' })
-const strikeMark = Decoration.mark({ class: 'mdpad-strike' })
-const highlightMark = Decoration.mark({ class: 'mdpad-highlight' })
-const inlineCodeMark = Decoration.mark({ class: 'mdpad-inline-code' })
-const linkTextMark = Decoration.mark({ class: 'mdpad-link-text' })
+const boldMark = Decoration.mark({ class: 'scribeaside-bold' })
+const italicMark = Decoration.mark({ class: 'scribeaside-italic' })
+const strikeMark = Decoration.mark({ class: 'scribeaside-strike' })
+const highlightMark = Decoration.mark({ class: 'scribeaside-highlight' })
+const inlineCodeMark = Decoration.mark({ class: 'scribeaside-inline-code' })
+const linkTextMark = Decoration.mark({ class: 'scribeaside-link-text' })
 const headingMarks: Record<number, Decoration> = {
-  1: Decoration.mark({ class: 'mdpad-heading mdpad-heading-1' }),
-  2: Decoration.mark({ class: 'mdpad-heading mdpad-heading-2' }),
-  3: Decoration.mark({ class: 'mdpad-heading mdpad-heading-3' }),
-  4: Decoration.mark({ class: 'mdpad-heading mdpad-heading-4' }),
-  5: Decoration.mark({ class: 'mdpad-heading mdpad-heading-5' }),
-  6: Decoration.mark({ class: 'mdpad-heading mdpad-heading-6' }),
+  1: Decoration.mark({ class: 'scribeaside-heading scribeaside-heading-1' }),
+  2: Decoration.mark({ class: 'scribeaside-heading scribeaside-heading-2' }),
+  3: Decoration.mark({ class: 'scribeaside-heading scribeaside-heading-3' }),
+  4: Decoration.mark({ class: 'scribeaside-heading scribeaside-heading-4' }),
+  5: Decoration.mark({ class: 'scribeaside-heading scribeaside-heading-5' }),
+  6: Decoration.mark({ class: 'scribeaside-heading scribeaside-heading-6' }),
 }
 const headingPrefixMark = Decoration.mark({
-  class: 'mdpad-muted mdpad-heading',
+  class: 'scribeaside-muted scribeaside-heading',
 })
 
 const headingConfig: Record<string, number> = {
@@ -216,7 +216,11 @@ const decorateBlockquote = (
   const endLine = doc.lineAt(to)
   for (let i = startLine.number; i <= endLine.number; i++) {
     const line = doc.line(i)
-    pushLine(entries, Decoration.line({ class: 'mdpad-blockquote' }), line.from)
+    pushLine(
+      entries,
+      Decoration.line({ class: 'scribeaside-blockquote' }),
+      line.from,
+    )
     const bqMatch = line.text.match(blockquotePrefixPattern)
     if (bqMatch) {
       const fullMatch = line.text.match(blockquoteFullPrefixPattern)
@@ -231,7 +235,7 @@ const decorateBlockquote = (
   }
 }
 
-const listBulletMark = Decoration.mark({ class: 'mdpad-list-bullet' })
+const listBulletMark = Decoration.mark({ class: 'scribeaside-list-bullet' })
 
 const decorateListItem = (
   entries: DecorationEntry[],
@@ -256,7 +260,7 @@ const decorateListItem = (
     })
     pushStyle(
       entries,
-      Decoration.mark({ class: 'mdpad-task-bracket' }),
+      Decoration.mark({ class: 'scribeaside-task-bracket' }),
       bracketStart,
       bracketEnd,
     )
@@ -264,7 +268,7 @@ const decorateListItem = (
     if (isChecked && contentStart < line.to) {
       pushStyle(
         entries,
-        Decoration.mark({ class: 'mdpad-task-checked' }),
+        Decoration.mark({ class: 'scribeaside-task-checked' }),
         contentStart,
         line.to,
       )
@@ -297,7 +301,7 @@ const decorateHorizontalRule = (
 ): void => {
   const line = doc.lineAt(from)
   pushMarker(entries, from, to, 'hr')
-  pushLine(entries, Decoration.line({ class: 'mdpad-hr' }), line.from)
+  pushLine(entries, Decoration.line({ class: 'scribeaside-hr' }), line.from)
 }
 
 const decorateFencedCode = (
@@ -319,7 +323,11 @@ const decorateFencedCode = (
     ) {
       pushMarker(entries, line.from, line.to, 'fence')
     }
-    pushLine(entries, Decoration.line({ class: 'mdpad-code-line' }), line.from)
+    pushLine(
+      entries,
+      Decoration.line({ class: 'scribeaside-code-line' }),
+      line.from,
+    )
   }
 }
 
@@ -349,12 +357,16 @@ const decorateTable = (
       if (i === startLine.number) {
         pushLine(
           entries,
-          Decoration.line({ class: 'mdpad-table-header' }),
+          Decoration.line({ class: 'scribeaside-table-header' }),
           line.from,
         )
       }
     }
-    pushLine(entries, Decoration.line({ class: 'mdpad-table-line' }), line.from)
+    pushLine(
+      entries,
+      Decoration.line({ class: 'scribeaside-table-line' }),
+      line.from,
+    )
   }
 }
 
@@ -558,7 +570,7 @@ export const attachClickHandlers = (
     const target = e.target as HTMLElement
 
     // --- Checkbox toggle ---
-    if (target.closest('.mdpad-task-bracket')) {
+    if (target.closest('.scribeaside-task-bracket')) {
       e.preventDefault()
       e.stopPropagation()
 
@@ -588,7 +600,7 @@ export const attachClickHandlers = (
     }
 
     // --- Cmd/Ctrl + click link ---
-    if ((e.metaKey || e.ctrlKey) && target.closest('.mdpad-link-text')) {
+    if ((e.metaKey || e.ctrlKey) && target.closest('.scribeaside-link-text')) {
       e.preventDefault()
       e.stopPropagation()
 

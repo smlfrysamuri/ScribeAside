@@ -84,7 +84,7 @@ const renderReader = (): void => {
 
 const setReaderMode = (enabled: boolean): void => {
   readerActive = enabled
-  document.body.classList.toggle('mdpad-reader-active', enabled)
+  document.body.classList.toggle('scribeaside-reader-active', enabled)
   if (enabled) {
     renderReader()
   } else {
@@ -107,7 +107,8 @@ const init = (): void => {
   )
 
   // Expose editor view for e2e tests
-  ;(window as unknown as { __mdpadView?: unknown }).__mdpadView = editor.view
+  ;(window as unknown as { __scribeasideView?: unknown }).__scribeasideView =
+    editor.view
 
   window.addEventListener(
     'message',

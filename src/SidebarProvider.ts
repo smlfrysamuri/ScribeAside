@@ -4,13 +4,13 @@ import { handleWebviewMessage } from './handleWebviewMessage'
 import type { INotesStorage } from './storageTypes'
 import type {
   ExtensionMessage,
-  MdpadCommand,
-  MdpadSettings,
+  ScribeAsideCommand,
+  ScribeAsideSettings,
   WebviewMessage,
 } from './webview/types'
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
-  public static readonly viewId = 'mdpad.notesView'
+  public static readonly viewId = 'scribeaside.notesView'
 
   private view?: vscode.WebviewView
   private pendingTitle?: string
@@ -40,7 +40,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       handleWebviewMessage(message, this.getStorage(), {
         sendInit: () => this.sendInit(),
         onFocusChange: focused => {
-          vscode.commands.executeCommand('setContext', 'mdpad.focused', focused)
+          vscode.commands.executeCommand(
+            'setContext',
+            'scribeaside.focused',
+            focused,
+          )
           this.onFocusChange?.(focused)
         },
         onReady: this.onReady,
@@ -50,7 +54,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidChangeVisibility(() => {
       if (!webviewView.visible) {
-        vscode.commands.executeCommand('setContext', 'mdpad.focused', false)
+        vscode.commands.executeCommand(
+          'setContext',
+          'scribeaside.focused',
+          false,
+        )
         this.onFocusChange?.(false)
       }
     })
@@ -60,7 +68,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       this.pendingTitle = undefined
     }
 
-    vscode.commands.executeCommand('setContext', 'mdpad.focused', true)
+    vscode.commands.executeCommand('setContext', 'scribeaside.focused', true)
     this.onFocusChange?.(true)
   }
 
@@ -83,13 +91,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  postCommand(command: MdpadCommand): void {
+  postCommand(command: ScribeAsideCommand): void {
     if (this.view) {
       this.view.webview.postMessage({ type: 'command', command })
     }
   }
 
-  sendSettings(settings: MdpadSettings): void {
+  sendSettings(settings: ScribeAsideSettings): void {
     if (this.view) {
       this.view.webview.postMessage({ type: 'settings', ...settings })
     }

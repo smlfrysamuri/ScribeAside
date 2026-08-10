@@ -68,7 +68,7 @@ export class FileNotesStorage implements INotesStorage {
       await this.load()
     } catch (err) {
       this.available = false
-      console.error('[mdpad] team notes failed to load:', errorText(err))
+      console.error('[ScribeAside] team notes failed to load:', errorText(err))
     }
   }
 
@@ -100,7 +100,7 @@ export class FileNotesStorage implements INotesStorage {
     } catch (err) {
       this.available = false
       vscode.window.showErrorMessage(
-        `mdpad: could not read team notes folder — ${errorText(err)}`,
+        `ScribeAside: could not read team notes folder — ${errorText(err)}`,
       )
       return
     }
@@ -285,7 +285,7 @@ export class FileNotesStorage implements INotesStorage {
     for (const timer of this.pending.values()) clearTimeout(timer)
     this.pending.clear()
     vscode.window.showWarningMessage(
-      'mdpad: the team notes folder is gone — switching away from team notes.',
+      'ScribeAside: the team notes folder is gone — switching away from team notes.',
     )
     this.options.onUnavailable()
   }
@@ -343,7 +343,7 @@ export class FileNotesStorage implements INotesStorage {
       this.lastWritten.set(id, content)
     } catch (err) {
       vscode.window.showErrorMessage(
-        `mdpad: could not save ${id} — ${errorText(err)}`,
+        `ScribeAside: could not save ${id} — ${errorText(err)}`,
       )
     }
   }
@@ -382,7 +382,7 @@ export class FileNotesStorage implements INotesStorage {
       await vscode.workspace.fs.delete(this.uriFor(id))
     } catch (err) {
       vscode.window.showErrorMessage(
-        `mdpad: could not delete ${id} — ${errorText(err)}`,
+        `ScribeAside: could not delete ${id} — ${errorText(err)}`,
       )
     }
   }

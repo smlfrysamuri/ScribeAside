@@ -8,13 +8,13 @@ test.describe('folding', () => {
     await initEditor(page, '# title\n\n## section\n\ncontent', {
       folding: true,
     })
-    const count = await page.locator('.mdpad-foldable').count()
+    const count = await page.locator('.scribeaside-foldable').count()
     expect(count).toBeGreaterThan(0)
   })
 
   test('no fold chevron when folding is disabled', async ({ page }) => {
     await initEditor(page, '## section\n\ncontent', { folding: false })
-    const count = await page.locator('.mdpad-foldable').count()
+    const count = await page.locator('.scribeaside-foldable').count()
     expect(count).toBe(0)
   })
 
@@ -22,12 +22,12 @@ test.describe('folding', () => {
     await initEditor(page, '# h1\n\ncontent', { folding: true })
     const h1Line = page.locator('.cm-line', { hasText: 'h1' }).first()
     const classes = await h1Line.getAttribute('class')
-    expect(classes).not.toContain('mdpad-foldable')
+    expect(classes).not.toContain('scribeaside-foldable')
   })
 
   test('no fold chevron when heading has no content', async ({ page }) => {
     await initEditor(page, '## empty section', { folding: true })
-    const count = await page.locator('.mdpad-foldable').count()
+    const count = await page.locator('.scribeaside-foldable').count()
     expect(count).toBe(0)
   })
 
@@ -35,7 +35,7 @@ test.describe('folding', () => {
     await initEditor(page, '---\ntitle: test\n---\n\ncontent', {
       folding: true,
     })
-    const count = await page.locator('.mdpad-foldable').count()
+    const count = await page.locator('.scribeaside-foldable').count()
     expect(count).toBeGreaterThan(0)
   })
 
@@ -48,7 +48,7 @@ test.describe('folding', () => {
         folding: true,
         syntaxMode: 'hidden',
       })
-      const count = await page.locator('.mdpad-foldable').count()
+      const count = await page.locator('.scribeaside-foldable').count()
       expect(count).toBeGreaterThan(0)
     })
 
@@ -66,7 +66,7 @@ test.describe('folding', () => {
 
         const clickChevron = async () => {
           const box = await page
-            .locator('.mdpad-foldable')
+            .locator('.scribeaside-foldable')
             .first()
             .boundingBox()
           if (!box) throw new Error('foldable line has no box')
@@ -161,14 +161,16 @@ test.describe('folding', () => {
 
     test('disabling folding removes fold chevrons', async ({ page }) => {
       await initEditor(page, '## section\n\ncontent here', { folding: true })
-      expect(await page.locator('.mdpad-foldable').count()).toBeGreaterThan(0)
+      expect(
+        await page.locator('.scribeaside-foldable').count(),
+      ).toBeGreaterThan(0)
 
       await sendMessage(page, {
         type: 'settings',
         ...DEFAULT_SETTINGS,
         folding: false,
       })
-      await expect(page.locator('.mdpad-foldable')).toHaveCount(0)
+      await expect(page.locator('.scribeaside-foldable')).toHaveCount(0)
     })
   })
 })

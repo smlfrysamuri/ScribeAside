@@ -1,6 +1,6 @@
 # 01 — Hidden-syntax rendering mode
 
-Adds an optional `mdpad.syntaxMode` setting with values `muted` (today's behaviour, the default) and
+Adds an optional `scribeaside.syntaxMode` setting with values `muted` (today's behaviour, the default) and
 `hidden`. In hidden mode the markdown marker characters on lines the cursor is not touching are
 collapsed with zero-width `Decoration.replace({})`, so a page reads as rendered while staying a plain
 text buffer. Default users see no change at all: muted mode must emit a byte-identical decoration set
@@ -10,12 +10,12 @@ and must not pay a single extra rebuild. The tree is shippable when this doc's c
 
 | Piece | Home file | Role |
 |---|---|---|
-| `SyntaxMode` | `src/webview/types.ts` (new type) | `'muted' \| 'hidden'`, added to `MdpadSettings` |
+| `SyntaxMode` | `src/webview/types.ts` (new type) | `'muted' \| 'hidden'`, added to `ScribeAsideSettings` |
 | `DecorationEntry` / `MarkerConstruct` | `src/webview/hiddenRanges.ts` (new) | Tagged intermediate the scan pass emits instead of finished ranges |
 | `computeActiveLines` / `mergeRanges` / `isRevealed` / `materialize` | `src/webview/hiddenRanges.ts` | Pure, DOM-free helpers — the whole selection-aware half, unit-testable under plain Mocha |
 | `scanDecorations` | `src/webview/decorations.ts` | Today's `buildDecorations` body, retargeted to emit entries |
 | `markdownDecorations(mode)` | `src/webview/decorations.ts` | Plugin **factory** replacing today's plugin constant; caches the scan, re-materializes on selection change in hidden mode only |
-| `mdpad.syntaxMode` | `package.json`, `extension.ts`, `editor.ts`, tests, README | The setting, through the repo's 9-touchpoint checklist |
+| `scribeaside.syntaxMode` | `package.json`, `extension.ts`, `editor.ts`, tests, README | The setting, through the repo's 9-touchpoint checklist |
 
 The pure helpers live in their own file rather than in `decorations.ts` because `decorations.ts`
 pulls in `@codemirror/language`'s `syntaxTree` and the whole GFM node vocabulary; the merge and
@@ -71,7 +71,7 @@ materializer adds the same guard for replaces so a zero-width merge result can n
 
 - [x] Add `export type SyntaxMode = 'muted' | 'hidden'`.
 
-- [x] Add `syntaxMode: SyntaxMode` to `MdpadSettings` (`:26-33`).
+- [x] Add `syntaxMode: SyntaxMode` to `ScribeAsideSettings` (`:26-33`).
 
 This lands first because `hiddenRanges.ts`, `decorations.ts`, `editor.ts`, and `extension.ts` all
 name the type, and nothing resolves until it exists.
@@ -114,7 +114,7 @@ export interface MarkerEntry {
   `StyleEntry` carries a finished `Range` because content styling is mode-independent and re-deriving
   it would risk drift. `MarkerEntry` keeps `from`/`to` loose because the materializer decides what to
   do with them, and carries `deco` because not every marker uses the plain `muted` mark — headings use
-  `headingPrefixMark`, which is `mdpad-muted mdpad-heading` (`src/webview/decorations.ts:33-35`).
+  `headingPrefixMark`, which is `scribeaside-muted scribeaside-heading` (`src/webview/decorations.ts:33-35`).
 
   `hideFrom`/`hideTo` let the collapsed span differ from the muted span, defaulting to `from`/`to`.
   Two constructs need it, and both were caught by the paired review rather than by this doc's first
@@ -183,12 +183,12 @@ export interface MarkerEntry {
 
   - `decorateListItem` (`:175-223`) — the task-marker prefix → `'task'` with `hideFrom` past the
     indent;
-    the `mdpad-task-bracket` and `mdpad-task-checked` marks → `pushStyle`; the unordered bullet
+    the `scribeaside-task-bracket` and `scribeaside-task-checked` marks → `pushStyle`; the unordered bullet
     (`listBulletMark`) → `pushStyle`, it is not a muted marker today; the ordered-list number → `'ol'`.
 
   - `decorateHorizontalRule` (`:225-234`) — the muted span → `'hr'`; the line class → `pushLine`.
 
-  - `decorateFencedCode` (`:236-259`) — the fence-line muted spans → `'fence'`; `mdpad-code-line` →
+  - `decorateFencedCode` (`:236-259`) — the fence-line muted spans → `'fence'`; `scribeaside-code-line` →
     `pushLine`.
 
   - `decorateTable` (`:261-294`) — separator row and every `|` → `'table'`; the header and line
@@ -207,7 +207,7 @@ export interface MarkerEntry {
   (`:365-371`) and the highlight pass run over raw line text and cannot tell code from prose, so a
   fence containing `- [ ] not a task` gets a `'task'` marker. In muted mode that was a cosmetic dimmed
   `- ` inside a code block; in hidden mode it **deletes characters from the rendered code block**,
-  which reads as mdpad corrupting code rather than as a decoration-tagging bug. Caught by the paired
+  which reads as ScribeAside corrupting code rather than as a decoration-tagging bug. Caught by the paired
   review, not by this doc's first draft.
 
 - [x] Rename `buildDecorations` to `scanDecorations(view: EditorView): DecorationEntry[]`, returning
@@ -262,7 +262,7 @@ export const markdownDecorations = (mode: SyntaxMode) =>
   Extension-list position decides decoration precedence, which decides DOM nesting when two marks
   cover the same range. Moving the plugin into the settings compartment would have hoisted it above
   `syntaxHighlighting(codeHighlight)` (`:634`), reordering the nesting of code-highlight spans against
-  `mdpad-inline-code` and `mdpad-task-bracket` — a real muted-mode change, and exactly what the
+  `scribeaside-inline-code` and `scribeaside-task-bracket` — a real muted-mode change, and exactly what the
   byte-identity guarantee exists to prevent. A dedicated compartment at the original position is
   reconfigurable and keeps the order.
 
@@ -286,7 +286,7 @@ accumulated listener — which reads as "clicking a checkbox toggles it twice", 
 - [x] Add to `contributes.configuration.properties` (`:314-350`):
 
 ```json
-"mdpad.syntaxMode": {
+"scribeaside.syntaxMode": {
   "type": "string",
   "enum": ["muted", "hidden"],
   "enumDescriptions": [
@@ -303,7 +303,7 @@ This is the repo's first `enum` setting; `enumDescriptions` is positional and mu
 
 ### Step 7 — test-side settings plumbing
 
-- [x] `src/test/e2e/utils.ts` — add `syntaxMode: 'muted' | 'hidden'` to the duplicated `MdpadSettings`
+- [x] `src/test/e2e/utils.ts` — add `syntaxMode: 'muted' | 'hidden'` to the duplicated `ScribeAsideSettings`
   interface (`:3-10`) and `syntaxMode: 'muted'` to `DEFAULT_SETTINGS` (`:12-19`). The duplicate exists
   because the e2e project is excluded from `tsconfig.json`; it has to be updated by hand.
 
@@ -357,7 +357,7 @@ to target line 2 or later, or it will fail for the right reason and look like th
 
 ## Checkpoint
 
-Run from `X:\.github\vscode-mdpad`:
+Run from `X:\.github\ScribeAside`:
 
 - [x] `pnpm lint` — see the caveat below
 - [x] `pnpm compile`
@@ -399,10 +399,10 @@ Item order matters here, and the first two items are the control:
 
 5. **Manual F5 smoke, both modes, in the real sidebar — OUTSTANDING, needs a human.** The e2e suite runs the same bundle but in a
    plain page, not inside a webview inside a sidebar view, so it cannot prove the immutable
-   requirement. Open the mdpad view, paste `.github/test-content.md`, and in each mode confirm:
+   requirement. Open the ScribeAside view, paste `.github/test-content.md`, and in each mode confirm:
    text renders, arrow-key navigation up and down through headings and lists lands where it looks
    like it should, clicking a checkbox toggles it once, and `Ctrl+click` on the two links works.
-   Then switch `mdpad.syntaxMode` live in Settings and confirm the view re-renders without a reload.
+   Then switch `scribeaside.syntaxMode` live in Settings and confirm the view re-renders without a reload.
 
 ## What comes next
 

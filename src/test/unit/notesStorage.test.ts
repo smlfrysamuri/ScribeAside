@@ -26,7 +26,7 @@ describe('NotesStorage', () => {
       const state = storage.getState()
       assert.strictEqual(state.pages.length, 1)
       assert.strictEqual(state.activeId, state.pages[0].id)
-      assert.ok(state.pages[0].content.includes('Welcome to mdpad'))
+      assert.ok(state.pages[0].content.includes('Welcome to ScribeAside'))
     })
 
     it('returns cached state on subsequent calls', () => {

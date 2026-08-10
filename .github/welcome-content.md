@@ -1,4 +1,4 @@
-# Welcome to mdpad
+# Welcome to ScribeAside
 
 Your markdown notepad inside VS Code.
 
@@ -45,7 +45,7 @@ Your markdown notepad inside VS Code.
 
 - Title bar icon: switch note scope — Workspace, Global, and Team once a team notes folder exists
 - Overflow menu: Export, Copy Page To..., Settings
-- Prefer reading over markup? Set `mdpad.syntaxMode` to `hidden`.
+- Prefer reading over markup? Set `scribeaside.syntaxMode` to `hidden`.
 - Want it fully rendered? Press `Cmd/Ctrl+Shift+V` for reader mode — press again (or double-click) to edit.
 
 > Delete this page whenever you're ready to start fresh.

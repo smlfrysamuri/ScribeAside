@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-export interface MdpadSettings {
+export interface ScribeAsideSettings {
   fontFamily: string
   lineHeight: number
   listIndentSize: number
@@ -10,7 +10,7 @@ export interface MdpadSettings {
   syntaxMode: 'muted' | 'hidden'
 }
 
-export const DEFAULT_SETTINGS: MdpadSettings = {
+export const DEFAULT_SETTINGS: ScribeAsideSettings = {
   fontFamily: 'inherit',
   lineHeight: 1.6,
   listIndentSize: 2,
@@ -37,7 +37,7 @@ export const sendMessage = async (
 export const initEditor = async (
   page: Page,
   content: string,
-  settings: Partial<MdpadSettings> = {},
+  settings: Partial<ScribeAsideSettings> = {},
 ): Promise<void> => {
   await openHarness(page)
   await sendMessage(page, {
@@ -79,9 +79,9 @@ export const getCursorPos = async (page: Page): Promise<number> => {
   return page.evaluate(() => {
     const view = (
       window as unknown as {
-        __mdpadView?: { state: { selection: { main: { head: number } } } }
+        __scribeasideView?: { state: { selection: { main: { head: number } } } }
       }
-    ).__mdpadView
+    ).__scribeasideView
     return view?.state.selection.main.head ?? -1
   })
 }
@@ -90,9 +90,9 @@ export const getEditorContent = async (page: Page): Promise<string> => {
   return page.evaluate(() => {
     const view = (
       window as unknown as {
-        __mdpadView?: { state: { doc: { toString: () => string } } }
+        __scribeasideView?: { state: { doc: { toString: () => string } } }
       }
-    ).__mdpadView
+    ).__scribeasideView
     return view?.state.doc.toString() ?? ''
   })
 }

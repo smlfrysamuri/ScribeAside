@@ -15,8 +15,8 @@ import {
   mergeRanges,
 } from '../../webview/hiddenRanges'
 
-const marker = Decoration.mark({ class: 'mdpad-muted' })
-const style = Decoration.mark({ class: 'mdpad-bold' })
+const marker = Decoration.mark({ class: 'scribeaside-muted' })
+const style = Decoration.mark({ class: 'scribeaside-bold' })
 
 const markerEntry = (
   from: number,

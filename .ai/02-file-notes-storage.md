@@ -33,11 +33,11 @@ filename carrying identity, parallel adds are independent file creations that gi
 help, and conflicts are confined to a page two people actually both edited.
 
 The accepted costs: renaming a file outside VS Code reads as a delete plus an add (the active-page
-pointer falls back to a neighbour), and there is no drag-to-reorder — mdpad has none today in any
+pointer falls back to a neighbour), and there is no drag-to-reorder — ScribeAside has none today in any
 scope, so nothing regresses.
 
 `activeId` is per-user state, not team state. It lives in `workspaceState` under
-`mdpad.teamActiveId` and is never written into the folder; putting it in a file would make every
+`scribeaside.teamActiveId` and is never written into the folder; putting it in a file would make every
 teammate's page switch a dirty working tree.
 
 ## Facts you'll rely on
@@ -57,7 +57,7 @@ opts into team notes.
 
 `workspace.fs.stat` rejects on a missing path; there is no `exists`. The probe is a `try`/`catch`
 around `stat`, and the result also has to be checked for `FileType.Directory` — a *file* named
-`.mdpad` must report unavailable, not throw later on `readDirectory`.
+`.scribeaside` must report unavailable, not throw later on `readDirectory`.
 
 `exportPage` (`src/extension.ts:260-289`) already contains the slug expression
 `title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'note'`. That is the
@@ -130,7 +130,7 @@ The stub currently covers `Uri`, `workspace.workspaceFolders`, `workspace.openTe
 - [x] `writeFile` **creates missing parent directories**, matching the real
   `workspace.fs.writeFile` (the "no mkdirp logic required" note in the typings is on the
   `FileSystemProvider` interface, not the consumer-facing `FileSystem` one). A stricter stub turns
-  mdpad silently re-creating a deleted folder into a visible error and hides the bug. Add
+  ScribeAside silently re-creating a deleted folder into a visible error and hides the bug. Add
   `fsSetWriteDelay(ms)` too, so a test can hold a write in flight and interleave a delete, a second
   write, or a `flush()` against it — every write-ordering bug above is invisible without it.
 
@@ -141,7 +141,7 @@ The stub currently covers `Uri`, `workspace.workspaceFolders`, `workspace.openTe
   class's own writes and make the self-write suppression test meaningless.
 
 - [x] `export const setConfigValue` / a `getConfiguration` that returns real values, so future tests
-  can set `mdpad.teamNotesFolder`. Today's stub returns `undefined` for every key.
+  can set `scribeaside.teamNotesFolder`. Today's stub returns `undefined` for every key.
 
 ### Step 6 — `src/FileNotesStorage.ts`
 
@@ -220,7 +220,7 @@ The stub currently covers `Uri`, `workspace.workspaceFolders`, `workspace.openTe
     keystrokes — a network share, WSL, remote-SSH, or a virus scanner.
 
 - [x] **Probe the folder before every write.** `workspace.fs.writeFile` creates missing parent
-  directories, so deleting `.mdpad` in the Explorer would otherwise bring it silently back on the next
+  directories, so deleting `.scribeaside` in the Explorer would otherwise bring it silently back on the next
   keystroke — the opposite of the opt-in the folder represents. A failed probe calls
   `markUnavailable()`: cancel pending writes, warn once, and fire the new `onUnavailable` option so
   `extension.ts` can drop the context key and fall the scope back to Workspace.
@@ -337,7 +337,7 @@ Ordered so a failure isolates:
    `isAvailable === false` rather than a rejection.
 
 4. **`exportPage` still exports — OUTSTANDING, needs a human.** Step 7 rewrote a working path, so it needs its own check: F5, write
-   a note titled `# Hello World!`, run **mdpad: Export Current Page**, and confirm the dialog offers
+   a note titled `# Hello World!`, run **ScribeAside: Export Current Page**, and confirm the dialog offers
    `hello-world.md`. This is the manual item; the slug function's own unit coverage does not prove the
    call site was rewired correctly.
 
@@ -355,7 +355,7 @@ behaviour to observe beyond the export regression above.
   `workspaceFolders[0]` (`handleWebviewMessage.ts:28`), and a per-root team scope needs a root picker
   in the UI, which is a larger design than this feature.
 
-- **A merge-conflict UI** is out. Git already surfaces conflict markers in the file, and mdpad renders
+- **A merge-conflict UI** is out. Git already surfaces conflict markers in the file, and ScribeAside renders
   them as text, which is an honest — if plain — representation. Building anything better means
   deciding what a three-way merge of prose means.
 

@@ -9,8 +9,8 @@ import { slugify } from './slug'
 import type { INotesStorage } from './storageTypes'
 import type {
   ExtensionMessage,
-  MdpadCommand,
-  MdpadSettings,
+  ScribeAsideCommand,
+  ScribeAsideSettings,
   SyntaxMode,
 } from './webview/types'
 
@@ -20,7 +20,7 @@ interface ScopeEntry {
   label: string
   icon: string
   // Getters, not values: the team entry's storage object is replaced whenever
-  // mdpad.teamNotesFolder changes, and a captured reference would keep writing
+  // scribeaside.teamNotesFolder changes, and a captured reference would keep writing
   // to the old folder.
   storage: () => INotesStorage
   available: () => boolean
@@ -29,17 +29,17 @@ interface ScopeEntry {
 // Cycle order for the title-bar scope button.
 const SCOPE_ORDER: Scope[] = ['workspace', 'global', 'team']
 
-const SCOPE_KEY = 'mdpad.scope'
-const TEAM_ACTIVE_KEY = 'mdpad.teamActiveId'
-const READER_KEY = 'mdpad.readerMode'
-const DEFAULT_TEAM_FOLDER = '.mdpad'
+const SCOPE_KEY = 'scribeaside.scope'
+const TEAM_ACTIVE_KEY = 'scribeaside.teamActiveId'
+const READER_KEY = 'scribeaside.readerMode'
+const DEFAULT_TEAM_FOLDER = '.scribeaside'
 
 // Module scope so deactivate() can flush pending writes at shutdown.
 let teamStorage: FileNotesStorage | undefined
 
 const configuredTeamFolder = (): string =>
   vscode.workspace
-    .getConfiguration('mdpad')
+    .getConfiguration('scribeaside')
     .get<string>('teamNotesFolder', DEFAULT_TEAM_FOLDER) || DEFAULT_TEAM_FOLDER
 
 const teamFolderUri = (): vscode.Uri | undefined => {
@@ -86,10 +86,10 @@ export const activate = async (
 
   const getActiveStorage = (): INotesStorage => SCOPES[currentScope].storage()
 
-  let mdpadFocused = false
+  let scribeasideFocused = false
 
   const handleFocusChange = (focused: boolean) => {
-    mdpadFocused = focused
+    scribeasideFocused = focused
   }
 
   const sidebarProvider = new SidebarProvider(
@@ -110,12 +110,12 @@ export const activate = async (
   )
 
   const syncEnabled = vscode.workspace
-    .getConfiguration('mdpad')
+    .getConfiguration('scribeaside')
     .get<boolean>('syncGlobalNotes', false)
-  context.globalState.setKeysForSync(syncEnabled ? ['mdpad.notes'] : [])
+  context.globalState.setKeysForSync(syncEnabled ? ['scribeaside.notes'] : [])
 
   const statusBar = vscode.window.createStatusBarItem(
-    'mdpad-status',
+    'scribeaside-status',
     vscode.StatusBarAlignment.Right,
     100,
   )
@@ -123,8 +123,8 @@ export const activate = async (
 
   const scopeLabel = (): string => SCOPES[currentScope].label
 
-  const getSettings = (): MdpadSettings => {
-    const config = vscode.workspace.getConfiguration('mdpad')
+  const getSettings = (): ScribeAsideSettings => {
+    const config = vscode.workspace.getConfiguration('scribeaside')
     return {
       fontFamily: config.get<string>('fontFamily', 'inherit'),
       lineHeight: config.get<number>('lineHeight', 1.6),
@@ -163,13 +163,13 @@ export const activate = async (
     const title = page ? deriveTitle(page.content) : 'Empty note'
     const scopeIcon = SCOPES[currentScope].icon
     statusBar.text = `$(notebook) ${title} (${idx + 1}/${state.pages.length}) · ${scopeIcon}`
-    statusBar.tooltip = `mdpad — ${scopeLabel()}`
+    statusBar.tooltip = `ScribeAside — ${scopeLabel()}`
     statusBar.show()
   }
 
   const switchAndUpdate = () => {
     sidebarProvider.setTitle(scopeLabel())
-    panelProvider.setTitle(`mdpad (${scopeLabel()})`)
+    panelProvider.setTitle(`ScribeAside (${scopeLabel()})`)
     sendInitToActive()
     updateStatusBar()
   }
@@ -193,7 +193,7 @@ export const activate = async (
   const publishTeamAvailability = (): void => {
     vscode.commands.executeCommand(
       'setContext',
-      'mdpad.teamAvailable',
+      'scribeaside.teamAvailable',
       teamStorage?.isAvailable ?? false,
     )
   }
@@ -296,36 +296,36 @@ export const activate = async (
   sidebarProvider.setTitle(scopeLabel())
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.openInEditor', () => {
+    vscode.commands.registerCommand('scribeaside.openInEditor', () => {
       sidebarProvider.detach()
       panelProvider.open()
-      panelProvider.setTitle(`mdpad (${scopeLabel()})`)
+      panelProvider.setTitle(`ScribeAside (${scopeLabel()})`)
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.focusNotes', async () => {
-      if (mdpadFocused) {
+    vscode.commands.registerCommand('scribeaside.focusNotes', async () => {
+      if (scribeasideFocused) {
         await vscode.commands.executeCommand(
           'workbench.action.focusActiveEditorGroup',
         )
       } else if (panelProvider.isActive) {
         panelProvider.open()
       } else {
-        await vscode.commands.executeCommand('mdpad.notesView.focus')
+        await vscode.commands.executeCommand('scribeaside.notesView.focus')
       }
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.newPage', () => {
+    vscode.commands.registerCommand('scribeaside.newPage', () => {
       getActiveStorage().newPage()
       switchAndUpdate()
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.deletePage', async () => {
+    vscode.commands.registerCommand('scribeaside.deletePage', async () => {
       const state = getActiveStorage().getState()
       const page = state.pages.find(p => p.id === state.activeId)
       const title = page ? deriveTitle(page.content) : 'Empty note'
@@ -345,14 +345,14 @@ export const activate = async (
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.previousPage', () => {
+    vscode.commands.registerCommand('scribeaside.previousPage', () => {
       getActiveStorage().previousPage()
       switchAndUpdate()
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.nextPage', () => {
+    vscode.commands.registerCommand('scribeaside.nextPage', () => {
       getActiveStorage().nextPage()
       switchAndUpdate()
     }),
@@ -370,7 +370,7 @@ export const activate = async (
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.selectPage', async () => {
+    vscode.commands.registerCommand('scribeaside.selectPage', async () => {
       const separator = {
         label: '',
         kind: vscode.QuickPickItemKind.Separator,
@@ -401,22 +401,22 @@ export const activate = async (
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.switchToGlobal', () => {
+    vscode.commands.registerCommand('scribeaside.switchToGlobal', () => {
       setScope('global')
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.switchToWorkspace', () => {
+    vscode.commands.registerCommand('scribeaside.switchToWorkspace', () => {
       setScope('workspace')
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.switchToTeam', async () => {
+    vscode.commands.registerCommand('scribeaside.switchToTeam', async () => {
       if (!vscode.workspace.workspaceFolders?.[0]) {
         vscode.window.showErrorMessage(
-          'mdpad: team notes need an open workspace folder.',
+          'ScribeAside: team notes need an open workspace folder.',
         )
         return
       }
@@ -430,7 +430,7 @@ export const activate = async (
       }
       if (!teamStorage) {
         vscode.window.showErrorMessage(
-          `mdpad: "${configuredTeamFolder()}" is not a usable team notes folder name — set mdpad.teamNotesFolder to a folder inside the workspace.`,
+          `ScribeAside: "${configuredTeamFolder()}" is not a usable team notes folder name — set scribeaside.teamNotesFolder to a folder inside the workspace.`,
         )
         return
       }
@@ -442,7 +442,7 @@ export const activate = async (
           {
             modal: true,
             detail:
-              'mdpad will store one markdown file per page in this folder, so the notes can be committed and shared with your team.',
+              'ScribeAside will store one markdown file per page in this folder, so the notes can be committed and shared with your team.',
           },
           'Create Folder',
         )
@@ -451,7 +451,7 @@ export const activate = async (
           await vscode.workspace.fs.createDirectory(teamStorage.folderUri)
         } catch (err) {
           vscode.window.showErrorMessage(
-            `mdpad: could not create ${folderName} — ${err instanceof Error ? err.message : String(err)}`,
+            `ScribeAside: could not create ${folderName} — ${err instanceof Error ? err.message : String(err)}`,
           )
           return
         }
@@ -465,7 +465,7 @@ export const activate = async (
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.copyPageTo', async () => {
+    vscode.commands.registerCommand('scribeaside.copyPageTo', async () => {
       const state = getActiveStorage().getState()
       const page = state.pages.find(p => p.id === state.activeId)
       if (!page) return
@@ -475,7 +475,7 @@ export const activate = async (
       )
       if (targets.length === 0) {
         vscode.window.showInformationMessage(
-          'mdpad: no other note scope is available to copy into.',
+          'ScribeAside: no other note scope is available to copy into.',
         )
         return
       }
@@ -493,14 +493,14 @@ export const activate = async (
       const created = target.newPage()
       target.updateContent(created.activeId, page.content)
       vscode.window.showInformationMessage(
-        `mdpad: copied to ${SCOPES[picked.scope].label} notes.`,
+        `ScribeAside: copied to ${SCOPES[picked.scope].label} notes.`,
       )
       updateStatusBar()
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.exportPage', async () => {
+    vscode.commands.registerCommand('scribeaside.exportPage', async () => {
       const state = getActiveStorage().getState()
       const page = state.pages.find(p => p.id === state.activeId)
       if (!page) return
@@ -519,7 +519,7 @@ export const activate = async (
           vscode.window.showInformationMessage(`Exported to ${uri.fsPath}`)
         } catch (err) {
           vscode.window.showErrorMessage(
-            `mdpad: export failed — ${err instanceof Error ? err.message : String(err)}`,
+            `ScribeAside: export failed — ${err instanceof Error ? err.message : String(err)}`,
           )
         }
       }
@@ -527,22 +527,22 @@ export const activate = async (
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.enterReaderMode', () => {
+    vscode.commands.registerCommand('scribeaside.enterReaderMode', () => {
       applyReaderMode(true)
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.exitReaderMode', () => {
+    vscode.commands.registerCommand('scribeaside.exitReaderMode', () => {
       applyReaderMode(false)
     }),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.openSettings', () => {
+    vscode.commands.registerCommand('scribeaside.openSettings', () => {
       vscode.commands.executeCommand(
         'workbench.action.openSettings',
-        '@ext:tbekaert.mdpad',
+        '@ext:smlfrysamuri.scribeaside',
       )
     }),
   )
@@ -567,7 +567,7 @@ export const activate = async (
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.searchPages', () => {
+    vscode.commands.registerCommand('scribeaside.searchPages', () => {
       type SearchResult = vscode.QuickPickItem & {
         pageId: string
         scope: Scope
@@ -624,7 +624,7 @@ export const activate = async (
     }),
   )
 
-  const postCommandToActive = (command: MdpadCommand) => {
+  const postCommandToActive = (command: ScribeAsideCommand) => {
     if (panelProvider.isActive) {
       panelProvider.postCommand(command)
     } else {
@@ -633,43 +633,43 @@ export const activate = async (
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.toggleBold', () =>
+    vscode.commands.registerCommand('scribeaside.toggleBold', () =>
       postCommandToActive('toggleBold'),
     ),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.toggleItalic', () =>
+    vscode.commands.registerCommand('scribeaside.toggleItalic', () =>
       postCommandToActive('toggleItalic'),
     ),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.toggleStrikethrough', () =>
+    vscode.commands.registerCommand('scribeaside.toggleStrikethrough', () =>
       postCommandToActive('toggleStrikethrough'),
     ),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.toggleCode', () =>
+    vscode.commands.registerCommand('scribeaside.toggleCode', () =>
       postCommandToActive('toggleCode'),
     ),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.toggleHighlight', () =>
+    vscode.commands.registerCommand('scribeaside.toggleHighlight', () =>
       postCommandToActive('toggleHighlight'),
     ),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.toggleHeading', () =>
+    vscode.commands.registerCommand('scribeaside.toggleHeading', () =>
       postCommandToActive('toggleHeading'),
     ),
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('mdpad.find', () => {
+    vscode.commands.registerCommand('scribeaside.find', () => {
       const state = getActiveStorage().getState()
       const page = state.pages.find(p => p.id === state.activeId)
       if (!page) return
@@ -709,19 +709,19 @@ export const activate = async (
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('mdpad')) {
+      if (e.affectsConfiguration('scribeaside')) {
         sendSettingsToActive()
       }
-      if (e.affectsConfiguration('mdpad.syncGlobalNotes')) {
+      if (e.affectsConfiguration('scribeaside.syncGlobalNotes')) {
         const sync = vscode.workspace
-          .getConfiguration('mdpad')
+          .getConfiguration('scribeaside')
           .get<boolean>('syncGlobalNotes', false)
-        context.globalState.setKeysForSync(sync ? ['mdpad.notes'] : [])
+        context.globalState.setKeysForSync(sync ? ['scribeaside.notes'] : [])
       }
-      // Additive, not `else if`: the first branch above matches every mdpad
+      // Additive, not `else if`: the first branch above matches every scribeaside
       // key, so chaining would swallow a folder change made in the same event
       // as any other setting.
-      if (e.affectsConfiguration('mdpad.teamNotesFolder')) {
+      if (e.affectsConfiguration('scribeaside.teamNotesFolder')) {
         void reloadTeamStorage()
       }
     }),

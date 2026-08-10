@@ -5,6 +5,7 @@ declare module '*.css' {
 
 declare module 'markdown-it-mark' {
   import type MarkdownIt from 'markdown-it'
+
   const markdownItMark: (md: MarkdownIt) => void
   export default markdownItMark
 }

@@ -17,8 +17,8 @@ import {
   Uri,
 } from './vscodeStub'
 
-const FOLDER = 'file:///workspace/.mdpad'
-const folderUri = Uri.file('/workspace/.mdpad') as unknown as vscode.Uri
+const FOLDER = 'file:///workspace/.scribeaside'
+const folderUri = Uri.file('/workspace/.scribeaside') as unknown as vscode.Uri
 const at = (name: string): string => `${FOLDER}/${name}`
 
 const tick = (ms = 0): Promise<void> =>

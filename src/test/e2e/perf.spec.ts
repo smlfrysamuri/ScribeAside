@@ -41,12 +41,12 @@ test.describe('perf', () => {
     await page.evaluate(() => {
       const view = (
         window as unknown as {
-          __mdpadView?: {
+          __scribeasideView?: {
             state: { doc: { length: number } }
             dispatch: (spec: unknown) => void
           }
         }
-      ).__mdpadView
+      ).__scribeasideView
       if (!view) throw new Error('editor not ready')
       view.dispatch({
         selection: {
@@ -65,13 +65,13 @@ test.describe('perf', () => {
       async ({ warmup, samples }) => {
         const view = (
           window as unknown as {
-            __mdpadView?: {
+            __scribeasideView?: {
               state: { doc: { length: number } }
               dispatch: (spec: unknown) => void
               requestMeasure: (spec?: unknown) => void
             }
           }
-        ).__mdpadView
+        ).__scribeasideView
         if (!view) throw new Error('editor not ready')
 
         const oneRun = async (): Promise<number> => {
@@ -123,13 +123,13 @@ test.describe('perf', () => {
       async ({ warmup, samples }) => {
         const view = (
           window as unknown as {
-            __mdpadView?: {
+            __scribeasideView?: {
               state: { doc: { length: number } }
               dispatch: (spec: unknown) => void
               requestMeasure: (spec?: unknown) => void
             }
           }
-        ).__mdpadView
+        ).__scribeasideView
         if (!view) throw new Error('editor not ready')
 
         // Times the synchronous dispatch only. `requestMeasure` resolves on
@@ -177,7 +177,7 @@ test.describe('perf', () => {
       async ({ warmup, samples }) => {
         const view = (
           window as unknown as {
-            __mdpadView?: {
+            __scribeasideView?: {
               state: {
                 doc: { line: (n: number) => { from: number } }
                 selection: { main: { head: number } }
@@ -186,7 +186,7 @@ test.describe('perf', () => {
               requestMeasure: (spec?: unknown) => void
             }
           }
-        ).__mdpadView
+        ).__scribeasideView
         if (!view) throw new Error('editor not ready')
 
         let lineNum = 1

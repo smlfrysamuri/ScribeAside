@@ -23,7 +23,7 @@ const paste = async (page: import('@playwright/test').Page, text: string) => {
 test.describe('interactions', () => {
   test('click checkbox toggles unchecked → checked', async ({ page }) => {
     await initEditor(page, '- [ ] task')
-    const bracket = page.locator('.mdpad-task-bracket').first()
+    const bracket = page.locator('.scribeaside-task-bracket').first()
     await bracket.click()
     const content = await getEditorContent(page)
     expect(content).toBe('- [x] task')
@@ -31,7 +31,7 @@ test.describe('interactions', () => {
 
   test('click checkbox toggles checked → unchecked', async ({ page }) => {
     await initEditor(page, '- [x] task')
-    const bracket = page.locator('.mdpad-task-bracket').first()
+    const bracket = page.locator('.scribeaside-task-bracket').first()
     await bracket.click()
     const content = await getEditorContent(page)
     expect(content).toBe('- [ ] task')
@@ -40,7 +40,7 @@ test.describe('interactions', () => {
   test('cmd/ctrl+click on link posts openLink message', async ({ page }) => {
     await initEditor(page, '[click me](https://example.com)')
     await clearPostedMessages(page)
-    const linkText = page.locator('.mdpad-link-text').first()
+    const linkText = page.locator('.scribeaside-link-text').first()
     // CodeMirror's click handler uses metaKey || ctrlKey
     await linkText.click({ modifiers: ['ControlOrMeta'] })
     await page.waitForTimeout(100)
@@ -91,7 +91,7 @@ test.describe('interactions — hidden mode', () => {
 
   test('click checkbox toggles on a hidden line', async ({ page }) => {
     await initEditor(page, 'anchor\n- [ ] task', HIDDEN)
-    await page.locator('.mdpad-task-bracket').first().click()
+    await page.locator('.scribeaside-task-bracket').first().click()
     expect(await getEditorContent(page)).toBe('anchor\n- [x] task')
   })
 
@@ -101,7 +101,7 @@ test.describe('interactions — hidden mode', () => {
     await initEditor(page, 'anchor\n[click me](https://example.com)', HIDDEN)
     await clearPostedMessages(page)
     await page
-      .locator('.mdpad-link-text')
+      .locator('.scribeaside-link-text')
       .first()
       .click({ modifiers: ['ControlOrMeta'] })
     await page.waitForTimeout(100)
