@@ -38,7 +38,7 @@ pnpm changeset status  # Show pending changesets
 Two webpack bundles from one config file:
 
 **Extension host** (`dist/extension.js`, target: node):
-- `src/extension.ts` — Entry point. `activate` is async (it probes the team-notes folder before registering anything) and `deactivate` returns a promise (it flushes pending team-notes writes). Triple storage (workspace + global + team) routed through a `Record<Scope, ScopeEntry>` registry — add a scope by adding a row, never by adding a ternary arm. Settings Sync for global notes. Commands: `openInEditor`, `focusNotes`, `newPage`, `deletePage`, `previousPage`, `nextPage`, `exportPage`, `copyPageTo`, `switchToGlobal/Workspace/Team`, `toggleBold/Italic/Strikethrough/Code/Highlight/Heading`. Formatting commands post a `{type: 'command', command}` message to the active webview — keybindings live in `package.json` (all scoped to `when: mdpad.focused`) so formatting works uniformly as `Cmd/Ctrl+letter` and page actions (`Cmd/Ctrl+N` new, `Cmd/Ctrl+W` delete, `Cmd/Ctrl+Shift+[` / `Cmd/Ctrl+Shift+]` prev/next) fire only while the mdpad webview is focused on both macOS and Windows/Linux.
+- `src/extension.ts` — Entry point. `activate` is async (it probes the team-notes folder before registering anything) and `deactivate` returns a promise (it flushes pending team-notes writes). Triple storage (workspace + global + team) routed through a `Record<Scope, ScopeEntry>` registry — add a scope by adding a row, never by adding a ternary arm. Settings Sync for global notes. Commands: `openInEditor`, `focusNotes`, `newPage`, `deletePage`, `previousPage`, `nextPage`, `exportPage`, `copyPageTo`, `switchToGlobal/Workspace/Team`, `enterReaderMode`/`exitReaderMode` (`Cmd/Ctrl+Shift+V` toggles via complementary `when` clauses), `toggleBold/Italic/Strikethrough/Code/Highlight/Heading`. Reader-mode state is host-owned (`globalState['mdpad.readerMode']` + context key), pushed to the webview as `{type: 'setReaderMode'}`; the webview never flips itself. Settings and reader state are re-sent on every webview `ready` (the `onReady` handler) because sidebar webviews are torn down on collapse. Formatting commands post a `{type: 'command', command}` message to the active webview — keybindings live in `package.json` (all scoped to `when: mdpad.focused`) so formatting works uniformly as `Cmd/Ctrl+letter` and page actions (`Cmd/Ctrl+N` new, `Cmd/Ctrl+W` delete, `Cmd/Ctrl+Shift+[` / `Cmd/Ctrl+Shift+]` prev/next) fire only while the mdpad webview is focused on both macOS and Windows/Linux.
 - `src/SidebarProvider.ts` — `WebviewViewProvider` for the Explorer sidebar. Accepts storage getter for scope switching.
 - `src/PanelProvider.ts` — Singleton `WebviewPanel` for floating editor. Exclusive mode: only sidebar or panel active at a time. Accepts storage getter for scope switching.
 - `src/storageTypes.ts` — `INotesStorage`, the structural contract both storages satisfy. Host-only; never import it from `webview/`.
@@ -51,7 +51,7 @@ Two webpack bundles from one config file:
 - `src/getWebviewHtml.ts` — HTML generation with nonce-based CSP.
 
 **Webview** (`dist/webview.js`, target: web):
-- `src/webview/index.ts` — Entry point. Mounts editor, wires toolbar, handles postMessage.
+- `src/webview/index.ts` — Entry point. Mounts editor, handles postMessage, owns the reader-mode container and its guards.
 - `src/webview/editor.ts` — CodeMirror 6 with GFM, VS Code theme, list indent/outdent (`Tab`/`Shift-Tab`), ordered-list continuation on `Enter`, paste-as-link, auto-close fences. Uses a `codeMirrorSettings` Compartment for live setting reconfiguration (font, line height, heading scale, line numbers, line wrapping, folding). Formatting shortcuts (bold/italic/strike/code/highlight/heading) are NOT in the CodeMirror keymap — they are handled by the extension host via `package.json` keybindings and the `MdpadCommand` message protocol; `src/webview/index.ts` applies them with `wrapSelection` / `toggleHeading`.
 - `src/webview/decorations.ts` — Syntax-decoration ViewPlugin, built as a factory `markdownDecorations(mode)`. `scanDecorations` walks the tree and the regex passes once and emits *tagged entries*; `materialize` turns entries into ranges per mode. Click handlers for checkboxes and links read `state.doc`, never the DOM, so they work in both modes.
 - `src/webview/hiddenRanges.ts` — the pure, DOM-free half of hidden mode: `mergeRanges`, `computeActiveLines`, `isRevealed`, `materialize`, and the `HIDEABLE_CONSTRUCTS` policy. Unit-tested with nothing heavier than an `EditorState`.
@@ -59,7 +59,7 @@ Two webpack bundles from one config file:
 - `src/webview/codeLanguages.ts` — Eagerly loaded language grammars for syntax highlighting in fenced code blocks.
 - `src/webview/listPatterns.ts` — Shared regex patterns and constants for list handling.
 - `src/webview/tableFormatter.ts` — Auto-aligns table columns on 500ms debounce after edits.
-- `src/webview/toolbar.ts` — Page dropdown (titles derived from content), new/delete buttons.
+- `src/webview/renderer.ts` — `renderMarkdown` for reader mode: markdown-it (`html: false`, so raw HTML is escaped) + markdown-it-mark + a local disabled-checkbox task-list rule; fenced code highlighted with the same `codeLanguages` grammars via `classHighlighter` (`tok-*` classes styled in CSS with the same theme variables as the editor's `codeHighlight` palette). While reading, the webview drops `command`/`setCursor` messages and re-renders on `init`/`replaceContent`; double-click posts `exitReaderMode`.
 - `src/webview/styles.css` — All styles: layout, VS Code CSS variable mapping, decoration classes.
 - `src/webview/types.ts` — Shared types: Page, NotesState, MdpadSettings, message protocol.
 
@@ -100,7 +100,8 @@ The third scope is backed by a folder of `.md` files (`mdpad.teamNotesFolder`, d
 - View ID: `mdpad.notesView`
 - Panel ID: `mdpad.panel`
 - Storage keys: `mdpad.notes` (memento scopes), `mdpad.teamActiveId` (per-user team page pointer)
-- Context keys: `mdpad.focused`, `mdpad.inEditor`, `mdpad.scope` (`workspace` | `global` | `team`), `mdpad.teamAvailable`
+- Context keys: `mdpad.focused`, `mdpad.inEditor`, `mdpad.scope` (`workspace` | `global` | `team`), `mdpad.teamAvailable`, `mdpad.readerMode`
+- Storage keys (global): `mdpad.readerMode` (display preference, not a workspace setting)
 
 ## Manual QA
 

@@ -125,3 +125,15 @@ Needs a real workspace folder. Work through in order:
 6. Delete a page from mdpad: the file disappears. Delete a file from the explorer: the page disappears and the view moves to a neighbour.
 7. Run **mdpad: Copy Page To...** from Workspace scope, pick Team, and confirm a new file appears while the view stays put.
 8. Set `mdpad.teamNotesFolder` to `notes` while in Team scope. With no `notes` folder present the scope falls back to Workspace and the cycle drops to two stops.
+
+## Reader Mode Test
+
+Work through with this note open:
+
+1. Press `Cmd/Ctrl+Shift+V` (or the title-bar preview icon). The page re-renders like the built-in markdown preview: `# Welcome to the Feature Test` becomes a large heading, the Table section becomes a real bordered table, `---` becomes a horizontal rule, the fenced blocks above are syntax-colored, and `==highlighted text==` has its yellow background with no `==` visible.
+2. Task checkboxes render as real checkboxes — checked ones checked — but do not respond to clicks. That is deliberate; flip back to the editor to toggle them.
+3. Single-click a link: it opens (external URL in the browser, relative path in an editor tab) without the page navigating away.
+4. While reading, press `Cmd/Ctrl+B` and the other formatting shortcuts — nothing may change. Flip back and confirm the content is byte-identical.
+5. Double-click anywhere in the rendered page — you are back in the editor. Press `Cmd/Ctrl+Shift+V` twice and confirm both directions work from the keyboard.
+6. In reader mode, switch pages with the title-bar arrows: each page arrives rendered. Then collapse and re-expand the sidebar view: it must come back still in reader mode.
+7. In Team scope with reader mode on, edit the current page's file in a normal editor tab and save. The rendered view updates in place.

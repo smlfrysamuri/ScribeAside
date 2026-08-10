@@ -17,6 +17,8 @@ export class PanelProvider {
     private readonly getStorage: () => INotesStorage,
     private readonly onDidDispose: () => void,
     private readonly onFocusChange?: (focused: boolean) => void,
+    private readonly onReady?: () => void,
+    private readonly onExitReaderMode?: () => void,
   ) {}
 
   open(): void {
@@ -43,7 +45,11 @@ export class PanelProvider {
 
     const messageDisposable = this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => {
-        handleWebviewMessage(message, this.getStorage(), () => this.sendInit())
+        handleWebviewMessage(message, this.getStorage(), {
+          sendInit: () => this.sendInit(),
+          onReady: this.onReady,
+          onExitReaderMode: this.onExitReaderMode,
+        })
       },
     )
 

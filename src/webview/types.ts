@@ -14,6 +14,7 @@ export type WebviewMessage =
   | { type: 'updateContent'; content: string }
   | { type: 'openLink'; url: string }
   | { type: 'focusChange'; focused: boolean }
+  | { type: 'exitReaderMode' }
 
 export type MdpadCommand =
   | 'toggleBold'
@@ -42,3 +43,4 @@ export type ExtensionMessage =
   | { type: 'command'; command: MdpadCommand }
   | ({ type: 'settings' } & MdpadSettings)
   | { type: 'setCursor'; pos: number }
+  | { type: 'setReaderMode'; enabled: boolean }

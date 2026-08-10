@@ -19,6 +19,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly getStorage: () => INotesStorage,
     private readonly onFocusChange?: (focused: boolean) => void,
+    private readonly onReady?: () => void,
+    private readonly onExitReaderMode?: () => void,
   ) {}
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
@@ -35,15 +37,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     )
 
     webviewView.webview.onDidReceiveMessage((message: WebviewMessage) => {
-      handleWebviewMessage(
-        message,
-        this.getStorage(),
-        () => this.sendInit(),
-        focused => {
+      handleWebviewMessage(message, this.getStorage(), {
+        sendInit: () => this.sendInit(),
+        onFocusChange: focused => {
           vscode.commands.executeCommand('setContext', 'mdpad.focused', focused)
           this.onFocusChange?.(focused)
         },
-      )
+        onReady: this.onReady,
+        onExitReaderMode: this.onExitReaderMode,
+      })
     })
 
     webviewView.onDidChangeVisibility(() => {

@@ -30,6 +30,8 @@ suite('Extension', () => {
     'mdpad.toggleCode',
     'mdpad.toggleHighlight',
     'mdpad.toggleHeading',
+    'mdpad.enterReaderMode',
+    'mdpad.exitReaderMode',
     'mdpad.focusNotes',
   ]
 

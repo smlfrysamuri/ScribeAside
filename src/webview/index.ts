@@ -5,6 +5,7 @@ import {
   toggleHeading,
   wrapSelection,
 } from './editor'
+import { renderMarkdown } from './renderer'
 import type { ExtensionMessage } from './types'
 
 declare function acquireVsCodeApi(): {
@@ -50,6 +51,50 @@ const handleOpenLink = (url: string): void => {
   vscode.postMessage({ type: 'openLink', url })
 }
 
+let readerActive = false
+let readerEl: HTMLElement | undefined
+
+const ensureReader = (): HTMLElement => {
+  if (readerEl) return readerEl
+  readerEl = document.createElement('div')
+  readerEl.id = 'reader'
+  document.body.appendChild(readerEl)
+  readerEl.addEventListener('click', event => {
+    const anchor = (event.target as HTMLElement).closest('a')
+    if (!anchor) return
+    event.preventDefault()
+    // The second click of a double-click fires this handler again; opening
+    // the link twice is never what the user meant.
+    if (event.detail > 1) return
+    const href = anchor.getAttribute('href')
+    if (href) handleOpenLink(href)
+  })
+  readerEl.addEventListener('dblclick', event => {
+    // Double-clicking a link means "open it", not "leave reader mode".
+    if ((event.target as HTMLElement).closest('a')) return
+    vscode.postMessage({ type: 'exitReaderMode' })
+  })
+  return readerEl
+}
+
+const renderReader = (): void => {
+  if (!editor) return
+  ensureReader().innerHTML = renderMarkdown(editor.view.state.doc.toString())
+}
+
+const setReaderMode = (enabled: boolean): void => {
+  readerActive = enabled
+  document.body.classList.toggle('mdpad-reader-active', enabled)
+  if (enabled) {
+    renderReader()
+  } else {
+    // The editor sat under display:none; CodeMirror must re-measure before
+    // pixel-based cursor navigation is trustworthy again.
+    editor?.view.requestMeasure()
+    editor?.view.focus()
+  }
+}
+
 const init = (): void => {
   const editorContainer = document.getElementById('editor')
   if (!editorContainer) return
@@ -72,7 +117,11 @@ const init = (): void => {
         case 'init': {
           syncedContent = message.content
           editor?.setContent(message.content)
-          editor?.view.focus()
+          if (readerActive) {
+            renderReader()
+          } else {
+            editor?.view.focus()
+          }
           break
         }
         // Deliberately no focus(): this arrives when someone else edited the
@@ -88,10 +137,13 @@ const init = (): void => {
           if (editor.view.state.doc.toString() !== syncedContent) break
           syncedContent = message.content
           editor.setContent(message.content)
+          if (readerActive) renderReader()
           break
         }
         case 'command': {
-          if (!editor) break
+          // Formatting keybindings still fire while the editor is hidden
+          // behind the reader; applying them would silently edit the note.
+          if (!editor || readerActive) break
           switch (message.command) {
             case 'toggleBold':
               wrapSelection(editor.view, '**')
@@ -119,7 +171,7 @@ const init = (): void => {
           break
         }
         case 'setCursor': {
-          if (!editor) break
+          if (!editor || readerActive) break
           const pos = Math.min(message.pos, editor.view.state.doc.length)
           editor.view.dispatch({
             selection: { anchor: pos },
@@ -128,12 +180,16 @@ const init = (): void => {
           editor.view.focus()
           break
         }
+        case 'setReaderMode': {
+          setReaderMode(message.enabled)
+          break
+        }
       }
     },
   )
 
   window.addEventListener('focus', () => {
-    editor?.view.focus()
+    if (!readerActive) editor?.view.focus()
     vscode.postMessage({ type: 'focusChange', focused: true })
   })
 

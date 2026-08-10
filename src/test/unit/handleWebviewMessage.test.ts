@@ -38,9 +38,39 @@ describe('handleWebviewMessage', () => {
     it('invokes sendInit callback', () => {
       const { storage } = makeStorage()
       let called = 0
-      handleWebviewMessage({ type: 'ready' } as WebviewMessage, storage, () => {
-        called++
+      handleWebviewMessage({ type: 'ready' } as WebviewMessage, storage, {
+        sendInit: () => {
+          called++
+        },
       })
+      assert.strictEqual(called, 1)
+    })
+
+    it('invokes onReady before sendInit so settings land before content', () => {
+      const { storage } = makeStorage()
+      const order: string[] = []
+      handleWebviewMessage({ type: 'ready' } as WebviewMessage, storage, {
+        sendInit: () => order.push('init'),
+        onReady: () => order.push('ready'),
+      })
+      assert.deepStrictEqual(order, ['ready', 'init'])
+    })
+  })
+
+  describe('exitReaderMode', () => {
+    it('invokes onExitReaderMode callback', () => {
+      const { storage } = makeStorage()
+      let called = 0
+      handleWebviewMessage(
+        { type: 'exitReaderMode' } as WebviewMessage,
+        storage,
+        {
+          sendInit: () => {},
+          onExitReaderMode: () => {
+            called++
+          },
+        },
+      )
       assert.strictEqual(called, 1)
     })
   })
@@ -51,19 +81,36 @@ describe('handleWebviewMessage', () => {
       handleWebviewMessage(
         { type: 'updateContent', content: 'hello' } as WebviewMessage,
         storage,
-        () => {},
+        { sendInit: () => {} },
       )
       assert.deepStrictEqual(updates, [{ id: activeId, content: 'hello' }])
     })
   })
 
   describe('openLink', () => {
+    it('opens mailto: links via env.openExternal, not as file paths', () => {
+      const { storage } = makeStorage()
+      handleWebviewMessage(
+        { type: 'openLink', url: 'mailto:a@example.com' } as WebviewMessage,
+        storage,
+        { sendInit: () => {} },
+      )
+      assert.strictEqual(
+        calls.filter(c => c.method === 'env.openExternal').length,
+        1,
+      )
+      assert.strictEqual(
+        calls.some(c => c.method === 'workspace.openTextDocument'),
+        false,
+      )
+    })
+
     it('opens http(s) URLs via env.openExternal', () => {
       const { storage } = makeStorage()
       handleWebviewMessage(
         { type: 'openLink', url: 'https://example.com/a' } as WebviewMessage,
         storage,
-        () => {},
+        { sendInit: () => {} },
       )
       const external = calls.filter(c => c.method === 'env.openExternal')
       assert.strictEqual(external.length, 1)
@@ -78,7 +125,7 @@ describe('handleWebviewMessage', () => {
       handleWebviewMessage(
         { type: 'openLink', url: 'notes/foo.md' } as WebviewMessage,
         storage,
-        () => {},
+        { sendInit: () => {} },
       )
       // openTextDocument is called synchronously; resolution is async
       await new Promise(r => setTimeout(r, 0))
@@ -96,7 +143,7 @@ describe('handleWebviewMessage', () => {
       handleWebviewMessage(
         { type: 'openLink', url: 'notes/foo.md' } as WebviewMessage,
         storage,
-        () => {},
+        { sendInit: () => {} },
       )
       assert.strictEqual(
         calls.some(c => c.method === 'workspace.openTextDocument'),
@@ -114,7 +161,7 @@ describe('handleWebviewMessage', () => {
       handleWebviewMessage(
         { type: 'openLink', url: 'missing.md' } as WebviewMessage,
         storage,
-        () => {},
+        { sendInit: () => {} },
       )
       // Let the rejection propagate through the microtask queue
       await new Promise(r => setTimeout(r, 0))
@@ -129,7 +176,7 @@ describe('handleWebviewMessage', () => {
       handleWebviewMessage(
         { type: 'openLink', url: 'foo.md' } as WebviewMessage,
         storage,
-        () => {},
+        { sendInit: () => {} },
       )
       assert.strictEqual(
         calls.some(c => c.method === 'env.openExternal'),

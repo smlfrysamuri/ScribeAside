@@ -34,6 +34,12 @@ Set `mdpad.syntaxMode` to `"hidden"` and the markers disappear on every line the
 
 Headings, bold, italic, strikethrough, inline code, highlights, links, blockquote `>` prefixes, and task-list bullets all collapse. Task checkboxes (`[ ]` / `[x]`) stay visible so they remain clickable, and code fences, table pipes, and frontmatter stay muted — hiding those would leave blank lines or break the visible table alignment. The document text never changes, so search, export, and copy/paste still see the raw markdown.
 
+#### Rendered view (reader mode)
+
+Press `Cmd/Ctrl+Shift+V` (or click the preview icon in the title bar) to flip the current page into a fully rendered, read-only view — real heading sizes, real tables, horizontal rules, and syntax-highlighted code blocks, like the built-in markdown preview but living wherever mdpad lives, including the sidebar. Press `Cmd/Ctrl+Shift+V` again (or double-click the page, or click the edit icon) to jump back into the editor.
+
+While reading, links open with a single click, checkboxes are shown but not clickable, and external edits to team-notes files re-render in place. The view you chose is remembered across restarts.
+
 #### Frontmatter
 
 Type `---` at the top of a note to create a YAML frontmatter block. Keys are muted, values stay readable. The closing `---` is auto-inserted.
@@ -126,6 +132,7 @@ To move: right-click the mdpad view header and select **Move View To...**, or si
 | Previous page   | `Cmd/Ctrl+Shift+[`             |
 | Next page       | `Cmd/Ctrl+Shift+]`             |
 | Delete page     | `Cmd/Ctrl+W`                   |
+| Reader mode     | `Cmd/Ctrl+Shift+V`             |
 | Focus mdpad     | `Cmd/Ctrl+Alt+M`               |
 | Indent list     | `Tab`                          |
 | Outdent list    | `Shift+Tab`                    |
@@ -170,7 +177,7 @@ Adapts to any VS Code color theme — dark, light, or high contrast.
 
 ### Uniform line heights
 
-All lines in the editor share the same height. Headings are distinguished by bold weight, not font size. Inline code and code blocks use a monospace font but at the same size as body text.
+All lines in the editor share the same height. Headings are distinguished by bold weight, not font size. Inline code and code blocks use a monospace font but at the same size as body text. (Reader mode has no such constraint — it is not an editor — which is where large headings and rendered tables live.)
 
 This is a deliberate constraint: CodeMirror's vertical cursor navigation (arrow keys) uses pixel-based calculations that break when lines have different heights (from varying font sizes, padding, or margins). The issue becomes noticeable when scrolled — the cursor can jump multiple lines or land in the wrong position.
 

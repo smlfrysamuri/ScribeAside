@@ -7,7 +7,12 @@ import { SidebarProvider } from './SidebarProvider'
 import { searchLines } from './searchLines'
 import { slugify } from './slug'
 import type { INotesStorage } from './storageTypes'
-import type { MdpadCommand, MdpadSettings, SyntaxMode } from './webview/types'
+import type {
+  ExtensionMessage,
+  MdpadCommand,
+  MdpadSettings,
+  SyntaxMode,
+} from './webview/types'
 
 type Scope = 'workspace' | 'global' | 'team'
 
@@ -26,6 +31,7 @@ const SCOPE_ORDER: Scope[] = ['workspace', 'global', 'team']
 
 const SCOPE_KEY = 'mdpad.scope'
 const TEAM_ACTIVE_KEY = 'mdpad.teamActiveId'
+const READER_KEY = 'mdpad.readerMode'
 const DEFAULT_TEAM_FOLDER = '.mdpad'
 
 // Module scope so deactivate() can flush pending writes at shutdown.
@@ -90,6 +96,8 @@ export const activate = async (
     context.extensionUri,
     getActiveStorage,
     handleFocusChange,
+    () => onWebviewReady(sidebarProvider),
+    () => applyReaderMode(false),
   )
 
   const panelProvider = new PanelProvider(
@@ -97,6 +105,8 @@ export const activate = async (
     getActiveStorage,
     () => {},
     handleFocusChange,
+    () => onWebviewReady(panelProvider),
+    () => applyReaderMode(false),
   )
 
   const syncEnabled = vscode.workspace
@@ -188,16 +198,35 @@ export const activate = async (
     )
   }
 
-  const postToActive = (message: {
-    type: 'replaceContent'
-    content: string
-  }): void => {
+  const postToActive = (message: ExtensionMessage): void => {
     if (panelProvider.isActive) {
       panelProvider.postMessage(message)
     } else {
       sidebarProvider.postMessage(message)
     }
   }
+
+  let readerMode = context.globalState.get<boolean>(READER_KEY, false)
+
+  const applyReaderMode = (enabled: boolean): void => {
+    readerMode = enabled
+    context.globalState.update(READER_KEY, enabled)
+    vscode.commands.executeCommand('setContext', READER_KEY, enabled)
+    postToActive({ type: 'setReaderMode', enabled })
+  }
+
+  // The webview is rebuilt from scratch every time a collapsed sidebar is
+  // expanded, so settings and reader state must ride along on every `ready`,
+  // not just on scope switches and configuration changes. Sent to the surface
+  // that fired `ready`, not the "active" one: a sidebar can re-resolve while
+  // a background panel still exists, and routing by activity would hand the
+  // fresh sidebar's settings to the panel.
+  const onWebviewReady = (target: SidebarProvider | PanelProvider): void => {
+    target.sendSettings(getSettings())
+    target.postMessage({ type: 'setReaderMode', enabled: readerMode })
+  }
+
+  vscode.commands.executeCommand('setContext', READER_KEY, readerMode)
 
   // Declared before buildTeamStorage so the closure handed to the storage is
   // never constructed against an uninitialised binding.
@@ -498,6 +527,18 @@ export const activate = async (
   )
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('mdpad.enterReaderMode', () => {
+      applyReaderMode(true)
+    }),
+  )
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mdpad.exitReaderMode', () => {
+      applyReaderMode(false)
+    }),
+  )
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('mdpad.openSettings', () => {
       vscode.commands.executeCommand(
         'workbench.action.openSettings',
@@ -571,6 +612,9 @@ export const activate = async (
           if (picked.scope !== currentScope) applyScope(picked.scope)
           getActiveStorage().switchPage(picked.pageId)
           switchAndUpdate()
+          // The cursor jump needs the editor; a reader-mode webview drops
+          // setCursor, which would turn accepting a result into a no-op.
+          if (readerMode) applyReaderMode(false)
           sendCursorToActive(picked.cursorPos)
         }
         qp.dispose()
@@ -653,6 +697,7 @@ export const activate = async (
       qp.onDidAccept(() => {
         const picked = qp.selectedItems[0]
         if (picked) {
+          if (readerMode) applyReaderMode(false)
           sendCursorToActive(picked.cursorPos)
         }
         qp.dispose()
