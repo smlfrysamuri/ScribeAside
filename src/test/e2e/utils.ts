@@ -7,6 +7,7 @@ export interface MdpadSettings {
   lineNumbers: boolean
   lineWrapping: boolean
   folding: boolean
+  syntaxMode: 'muted' | 'hidden'
 }
 
 export const DEFAULT_SETTINGS: MdpadSettings = {
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS: MdpadSettings = {
   lineNumbers: false,
   lineWrapping: true,
   folding: false,
+  syntaxMode: 'muted',
 }
 
 export const openHarness = async (page: Page): Promise<void> => {

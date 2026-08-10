@@ -1,10 +1,10 @@
 import * as vscode from 'vscode'
-import type { NotesStorage } from './NotesStorage'
+import type { INotesStorage } from './storageTypes'
 import type { WebviewMessage } from './webview/types'
 
 export const handleWebviewMessage = (
   message: WebviewMessage,
-  storage: NotesStorage,
+  storage: INotesStorage,
   sendInit: () => void,
   onFocusChange?: (focused: boolean) => void,
 ): void => {

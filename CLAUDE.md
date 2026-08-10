@@ -38,10 +38,13 @@ pnpm changeset status  # Show pending changesets
 Two webpack bundles from one config file:
 
 **Extension host** (`dist/extension.js`, target: node):
-- `src/extension.ts` — Entry point. Dual storage (workspace + global), scope routing, Settings Sync for global notes, commands: `openInEditor`, `focusNotes`, `newPage`, `deletePage`, `previousPage`, `nextPage`, `exportPage`, `switchToGlobal/Workspace`, `toggleBold/Italic/Strikethrough/Code/Highlight/Heading`. Formatting commands post a `{type: 'command', command}` message to the active webview — keybindings live in `package.json` (all scoped to `when: mdpad.focused`) so formatting works uniformly as `Cmd/Ctrl+letter` and page actions (`Cmd/Ctrl+N` new, `Cmd/Ctrl+W` delete, `Cmd/Ctrl+Shift+[` / `Cmd/Ctrl+Shift+]` prev/next) fire only while the mdpad webview is focused on both macOS and Windows/Linux.
+- `src/extension.ts` — Entry point. `activate` is async (it probes the team-notes folder before registering anything) and `deactivate` returns a promise (it flushes pending team-notes writes). Triple storage (workspace + global + team) routed through a `Record<Scope, ScopeEntry>` registry — add a scope by adding a row, never by adding a ternary arm. Settings Sync for global notes. Commands: `openInEditor`, `focusNotes`, `newPage`, `deletePage`, `previousPage`, `nextPage`, `exportPage`, `copyPageTo`, `switchToGlobal/Workspace/Team`, `toggleBold/Italic/Strikethrough/Code/Highlight/Heading`. Formatting commands post a `{type: 'command', command}` message to the active webview — keybindings live in `package.json` (all scoped to `when: mdpad.focused`) so formatting works uniformly as `Cmd/Ctrl+letter` and page actions (`Cmd/Ctrl+N` new, `Cmd/Ctrl+W` delete, `Cmd/Ctrl+Shift+[` / `Cmd/Ctrl+Shift+]` prev/next) fire only while the mdpad webview is focused on both macOS and Windows/Linux.
 - `src/SidebarProvider.ts` — `WebviewViewProvider` for the Explorer sidebar. Accepts storage getter for scope switching.
 - `src/PanelProvider.ts` — Singleton `WebviewPanel` for floating editor. Exclusive mode: only sidebar or panel active at a time. Accepts storage getter for scope switching.
+- `src/storageTypes.ts` — `INotesStorage`, the structural contract both storages satisfy. Host-only; never import it from `webview/`.
 - `src/NotesStorage.ts` — CRUD over any `vscode.Memento` (workspaceState or globalState). Cached reads. Stores `{ pages: Page[], activeId }`.
+- `src/FileNotesStorage.ts` — the same contract over a folder of `.md` files. Synchronous cache, per-page 300 ms debounced writes, `flush()` on shutdown and scope switch, and a `*.md` watcher whose self-write suppression is by **content comparison** (a "we just wrote" flag has timing to get wrong; content does not). Four invariants hold the durability story together, and each one exists because breaking it loses data silently: `getState()` never writes; writes for one page are **chained, never concurrent**, so they cannot land out of order or escape `flush()`; a delete waits for any in-flight write and is gated on `writing` as well as `onDisk`; and every write probes the folder first, because `workspace.fs.writeFile` would otherwise re-create a folder the user deleted.
+- `src/slug.ts` — `slugify` (shared with `exportPage`), `timestampFileName`, `uniqueFileName`.
 - `src/deriveTitle.ts` — Page title derivation: frontmatter `title:` field > first heading > first non-empty line. Skips frontmatter block.
 - `src/searchLines.ts` — Shared search helper for find-in-note and search-across-pages.
 - `src/handleWebviewMessage.ts` — Shared message handler used by both providers.
@@ -50,7 +53,8 @@ Two webpack bundles from one config file:
 **Webview** (`dist/webview.js`, target: web):
 - `src/webview/index.ts` — Entry point. Mounts editor, wires toolbar, handles postMessage.
 - `src/webview/editor.ts` — CodeMirror 6 with GFM, VS Code theme, list indent/outdent (`Tab`/`Shift-Tab`), ordered-list continuation on `Enter`, paste-as-link, auto-close fences. Uses a `codeMirrorSettings` Compartment for live setting reconfiguration (font, line height, heading scale, line numbers, line wrapping, folding). Formatting shortcuts (bold/italic/strike/code/highlight/heading) are NOT in the CodeMirror keymap — they are handled by the extension host via `package.json` keybindings and the `MdpadCommand` message protocol; `src/webview/index.ts` applies them with `wrapSelection` / `toggleHeading`.
-- `src/webview/decorations.ts` — Muted-syntax ViewPlugin. Mark/line decorations only (no Decoration.replace). Click handlers for checkboxes and links. Regex-based passes for `==highlight==` and frontmatter.
+- `src/webview/decorations.ts` — Syntax-decoration ViewPlugin, built as a factory `markdownDecorations(mode)`. `scanDecorations` walks the tree and the regex passes once and emits *tagged entries*; `materialize` turns entries into ranges per mode. Click handlers for checkboxes and links read `state.doc`, never the DOM, so they work in both modes.
+- `src/webview/hiddenRanges.ts` — the pure, DOM-free half of hidden mode: `mergeRanges`, `computeActiveLines`, `isRevealed`, `materialize`, and the `HIDEABLE_CONSTRUCTS` policy. Unit-tested with nothing heavier than an `EditorState`.
 - `src/webview/editor.ts` contains section folding: `foldService` for H2/H3/frontmatter fold ranges, `foldGutter` (with line numbers), inline `FoldWidget` (without line numbers).
 - `src/webview/codeLanguages.ts` — Eagerly loaded language grammars for syntax highlighting in fenced code blocks.
 - `src/webview/listPatterns.ts` — Shared regex patterns and constants for list handling.
@@ -68,7 +72,14 @@ The webview exposes its `EditorView` on `window.__mdpadView` for test inspection
 
 ## Key Design Decision
 
-**Muted-syntax, not hidden-syntax.** All markdown characters stay visible but dimmed using `--vscode-editorLineNumber-foreground`. No widget replacements, no raw mode toggle. This avoids layout jumps, cursor issues, and CPU spikes from the original Typora-style approach.
+**Muted syntax is the default and must stay byte-identical.** All markdown characters stay visible but dimmed using `--vscode-editorLineNumber-foreground`. No widget replacements, no raw mode toggle. This avoids layout jumps, cursor issues, and CPU spikes from the original Typora-style approach.
+
+`mdpad.syntaxMode: "hidden"` is opt-in on top of that: markers on lines no selection touches are collapsed with zero-width `Decoration.replace({})`, revealing again the moment the cursor arrives. Two rules make it safe to keep:
+
+- **Muted mode must emit the identical decoration set, in the identical order.** Order decides DOM nesting, so `materialize`'s muted branch walks entries in emission order and converts one-for-one. Anything that regroups, sorts, or filters there is a behaviour change even when every range is the same. The same reason keeps the decoration plugin in its own `Compartment` at its original position in `createEditor`'s extension list rather than inside `buildSettingsExtensions` — moving it would reorder decoration precedence against `syntaxHighlighting`.
+- **Hidden ranges are merged before any replace is emitted**, which makes partial overlap between two replace decorations impossible by construction. Markers never span a line break, and nothing inside a code block is ever collapsed — hidden mode must not change what a code block appears to contain.
+
+A marker's muted span and its hidden span can differ (`hideFrom`/`hideTo`): a task bullet mutes its whole `  - ` prefix but collapses only the bullet, or nested tasks flatten to the left margin.
 
 **Uniform line heights.** All lines must have the same height — no per-line `font-size`, `line-height`, `padding`, `margin`, or `border` that would change a line's height. CodeMirror's vertical cursor navigation (arrow keys) uses pixel-based calculations that break with inconsistent line heights, especially when scrolled. Headings are distinguished by `font-weight` only, not size. Inline code and code blocks use monospace font but no size change.
 
@@ -76,14 +87,20 @@ The webview exposes its `EditorView` on `window.__mdpadView` for test inspection
 
 Global notes can optionally be synced across devices via VS Code's Settings Sync (`context.globalState.setKeysForSync`). This is **opt-in** (disabled by default via `mdpad.syncGlobalNotes`) because there is no VS Code API to remove data from the sync remote once it's been synced. Disabling the setting stops future syncing but does not delete already-synced data.
 
+## Team notes
+
+The third scope is backed by a folder of `.md` files (`mdpad.teamNotesFolder`, default `.mdpad`) so a team can commit them. **The filename is `Page.id`** and ordering is the alphabetical filename sort — there is deliberately no index file, because an index is a merge hotspot that conflicts on exactly the case the feature exists for (two people adding notes). Files are never renamed on a title change; that would rewrite git history for a cosmetic edit.
+
+`activeId` is per-user (`workspaceState['mdpad.teamActiveId']`) and never written into the folder. Conflict policy is last-writer-wins, documented in the README; there is no merge UI.
+
 ## Naming
 
 - Product name: always lowercase `mdpad` in user-facing text (UI, docs, commit messages). PascalCase `Mdpad` is only acceptable in TypeScript type names (e.g. `MdpadSettings`).
 - Command prefix: `mdpad` (use `category: "mdpad"` in package.json, not a title prefix)
 - View ID: `mdpad.notesView`
 - Panel ID: `mdpad.panel`
-- Storage key: `mdpad.notes`
-- Context key: `mdpad.focused`
+- Storage keys: `mdpad.notes` (memento scopes), `mdpad.teamActiveId` (per-user team page pointer)
+- Context keys: `mdpad.focused`, `mdpad.inEditor`, `mdpad.scope` (`workspace` | `global` | `team`), `mdpad.teamAvailable`
 
 ## Manual QA
 

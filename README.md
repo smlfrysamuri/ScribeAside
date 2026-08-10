@@ -28,6 +28,12 @@ That's it. Your notes persist across restarts, per workspace. Toggle to **Global
 
 Markdown characters (`#`, `**`, `*`, `` ` ``, `~~`, `==`) stay visible but dimmed. Content is styled live — headings are bold, bold is bold, code is monospace, and `==highlighted text==` gets a yellow background.
 
+#### Hidden-syntax editing
+
+Set `mdpad.syntaxMode` to `"hidden"` and the markers disappear on every line the cursor is not touching, so a page reads as rendered while you edit it. Move the cursor onto a line and its markers come back, ready to edit.
+
+Headings, bold, italic, strikethrough, inline code, highlights, links, blockquote `>` prefixes, and task-list bullets all collapse. Task checkboxes (`[ ]` / `[x]`) stay visible so they remain clickable, and code fences, table pipes, and frontmatter stay muted — hiding those would leave blank lines or break the visible table alignment. The document text never changes, so search, export, and copy/paste still see the raw markdown.
+
 #### Frontmatter
 
 Type `---` at the top of a note to create a YAML frontmatter block. Keys are muted, values stay readable. The closing `---` is auto-inserted.
@@ -63,7 +69,22 @@ Headings, bold, italic, strikethrough, links, blockquotes, task lists, fenced co
 
 #### Workspace & Global notes
 
-Notes default to workspace scope — tied to the current project. Click the scope toggle in the title bar to switch to global notes, accessible from any workspace. The page picker lists notes from both scopes. Optionally sync global notes across devices via VS Code Settings Sync (opt-in, disabled by default).
+Notes default to workspace scope — tied to the current project. Click the scope toggle in the title bar to switch to global notes, accessible from any workspace. The page picker lists notes from every available scope. Optionally sync global notes across devices via VS Code Settings Sync (opt-in, disabled by default).
+
+#### Team notes
+
+Workspace and global notes live in VS Code's internal storage, which is fine for you and useless for your team. Team notes instead live as plain markdown files in a folder inside your repo, one file per page, so they can be committed and reviewed like anything else.
+
+Run **mdpad: Switch to Team Notes** to get started. If the folder (`.mdpad` by default, see `mdpad.teamNotesFolder`) does not exist yet, mdpad offers to create it. Once it exists, the title-bar scope toggle cycles Workspace → Global → Team. Use **mdpad: Copy Page To...** to move a note you already have into the team folder.
+
+How it behaves:
+
+- **The filename is the page's identity**, and pages are ordered by filename. New pages are named `note-YYYYMMDD-HHmmss.md` and are *not* renamed when you change a note's title, so git history stays intact. Displayed titles still come from the note's content.
+- **Which page you have open is yours alone.** It is stored per-user in workspace state, never written into the folder, so switching pages never dirties your working tree.
+- **Empty pages are not written.** Create a page and never type in it, and no file appears.
+- **Edits from outside are picked up.** Change a note in a normal editor tab, pull a teammate's commit, or switch branches, and the view updates in place — without stealing your cursor. What you are typing always wins: if you have unsaved keystrokes, the incoming change is skipped rather than overwriting them, and your version is saved a moment later.
+- **Deleting the folder switches you out.** Remove the folder in the Explorer, or check out a branch without it, and mdpad falls back to workspace notes instead of quietly re-creating it.
+- **Conflicts are ordinary git conflicts.** Two people editing the same page at the same time is last-writer-wins within a session; across branches it is a normal merge conflict in one file. There is no merge UI. Because pages are separate files, two people *adding* notes never conflict at all.
 
 #### Multiple pages
 
@@ -125,7 +146,7 @@ All formatting and page shortcuts are scoped to `when: mdpad.focused` so they on
 #### Search
 
 - **Find in note** (`Cmd/Ctrl+F`) — search within the current page
-- **Search across pages** (`Cmd/Ctrl+Shift+F`) — search content across all pages in both scopes
+- **Search across pages** (`Cmd/Ctrl+Shift+F`) — search content across all pages in every available scope
 
 #### Settings
 
@@ -137,6 +158,8 @@ All formatting and page shortcuts are scoped to `when: mdpad.focused` so they on
 | `mdpad.folding` | `false` | Enable section folding for H2, H3, and frontmatter. |
 | `mdpad.listIndentSize` | `2` | Spaces per list indent level. |
 | `mdpad.lineNumbers` | `false` | Show line numbers in the gutter. |
+| `mdpad.syntaxMode` | `"muted"` | How markdown syntax characters are rendered — `"muted"` dims them, `"hidden"` collapses them except on the line the cursor is on. |
+| `mdpad.teamNotesFolder` | `".mdpad"` | Folder for team notes, relative to the first workspace folder. One markdown file per page. |
 | `mdpad.syncGlobalNotes` | `false` | Sync global notes across devices via Settings Sync. Opt-in — once synced, data cannot be removed from the remote. |
 
 #### Theme-aware

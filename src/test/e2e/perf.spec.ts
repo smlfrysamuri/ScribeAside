@@ -8,6 +8,11 @@ import { focusEditor, initEditor } from './utils'
 // Measured on local dev machines the current build lands around 5–15ms. We
 // leave generous headroom so the test is reliable in CI rather than flaky.
 const BUDGET_MS = 50
+// A cursor move in hidden mode skips the tree walk and only re-materializes
+// the cached scan, so it gets its own, tighter budget. The two hidden-mode
+// tests below time the synchronous dispatch alone; the default-mode test above
+// keeps its original rAF-inclusive measurement so it stays a stable control.
+const CURSOR_BUDGET_MS = 25
 const DOC_LINES = 5000
 
 const buildLargeDoc = (lines: number): string => {
@@ -102,5 +107,116 @@ test.describe('perf', () => {
     )
 
     expect(median, 'median keystroke dispatch time').toBeLessThan(BUDGET_MS)
+  })
+
+  // Hidden mode adds a selection-driven rebuild. The keystroke path still
+  // re-scans the tree (so it should land close to the muted number); the
+  // cursor-move path only re-materializes the cached scan, so it should land
+  // well below it. Both share the same budget.
+  test(`hidden-mode keystroke stays under ${BUDGET_MS}ms on a ${DOC_LINES}-line doc`, async ({
+    page,
+  }) => {
+    await initEditor(page, buildLargeDoc(DOC_LINES), { syntaxMode: 'hidden' })
+    await focusEditor(page)
+
+    const timings: number[] = await page.evaluate(
+      async ({ warmup, samples }) => {
+        const view = (
+          window as unknown as {
+            __mdpadView?: {
+              state: { doc: { length: number } }
+              dispatch: (spec: unknown) => void
+              requestMeasure: (spec?: unknown) => void
+            }
+          }
+        ).__mdpadView
+        if (!view) throw new Error('editor not ready')
+
+        // Times the synchronous dispatch only. `requestMeasure` resolves on
+        // the next animation frame, so including it would put a ~16.7ms floor
+        // under every sample and measure the scheduler instead of the
+        // decoration rebuild. The await still runs, after the clock stops, so
+        // the editor is settled before the next sample.
+        const oneRun = async (): Promise<number> => {
+          const pos = view.state.doc.length
+          const start = performance.now()
+          view.dispatch({
+            changes: { from: pos, to: pos, insert: 'x' },
+            selection: { anchor: pos + 1, head: pos + 1 },
+          })
+          const elapsed = performance.now() - start
+          await new Promise<void>(resolve => {
+            view.requestMeasure({ read: () => resolve() })
+          })
+          return elapsed
+        }
+
+        for (let i = 0; i < warmup; i++) await oneRun()
+        const out: number[] = []
+        for (let i = 0; i < samples; i++) out.push(await oneRun())
+        return out
+      },
+      { warmup: 3, samples: 10 },
+    )
+
+    const sorted = [...timings].sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)]
+    console.log(
+      `perf(hidden keystroke): median=${median.toFixed(2)}ms max=${sorted[sorted.length - 1].toFixed(2)}ms`,
+    )
+    expect(median, 'median hidden-mode keystroke time').toBeLessThan(BUDGET_MS)
+  })
+
+  test(`hidden-mode cursor move stays under ${CURSOR_BUDGET_MS}ms on a ${DOC_LINES}-line doc`, async ({
+    page,
+  }) => {
+    await initEditor(page, buildLargeDoc(DOC_LINES), { syntaxMode: 'hidden' })
+    await focusEditor(page)
+
+    const timings: number[] = await page.evaluate(
+      async ({ warmup, samples }) => {
+        const view = (
+          window as unknown as {
+            __mdpadView?: {
+              state: {
+                doc: { line: (n: number) => { from: number } }
+                selection: { main: { head: number } }
+              }
+              dispatch: (spec: unknown) => void
+              requestMeasure: (spec?: unknown) => void
+            }
+          }
+        ).__mdpadView
+        if (!view) throw new Error('editor not ready')
+
+        let lineNum = 1
+        const oneRun = async (): Promise<number> => {
+          lineNum = (lineNum % 40) + 1
+          const anchor = view.state.doc.line(lineNum).from
+          const start = performance.now()
+          view.dispatch({ selection: { anchor, head: anchor } })
+          const elapsed = performance.now() - start
+          await new Promise<void>(resolve => {
+            view.requestMeasure({ read: () => resolve() })
+          })
+          return elapsed
+        }
+
+        for (let i = 0; i < warmup; i++) await oneRun()
+        const out: number[] = []
+        for (let i = 0; i < samples; i++) out.push(await oneRun())
+        return out
+      },
+      { warmup: 3, samples: 10 },
+    )
+
+    const sorted = [...timings].sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)]
+    console.log(
+      `perf(hidden cursor move): median=${median.toFixed(2)}ms max=${sorted[sorted.length - 1].toFixed(2)}ms`,
+    )
+    expect(median, 'median hidden-mode cursor move time').toBeLessThan(
+      CURSOR_BUDGET_MS,
+    )
   })
 })

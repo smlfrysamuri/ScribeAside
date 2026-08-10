@@ -82,3 +82,32 @@ test.describe('interactions', () => {
     expect(content).toBe('plain text')
   })
 })
+
+// The click handlers read `state.doc`, never the DOM, so collapsing markers
+// must not change them. These cases live on line 2 so the construct is
+// genuinely hidden — line 1 always holds the cursor after `init`.
+test.describe('interactions — hidden mode', () => {
+  const HIDDEN = { syntaxMode: 'hidden' } as const
+
+  test('click checkbox toggles on a hidden line', async ({ page }) => {
+    await initEditor(page, 'anchor\n- [ ] task', HIDDEN)
+    await page.locator('.mdpad-task-bracket').first().click()
+    expect(await getEditorContent(page)).toBe('anchor\n- [x] task')
+  })
+
+  test('cmd/ctrl+click on a link posts openLink on a hidden line', async ({
+    page,
+  }) => {
+    await initEditor(page, 'anchor\n[click me](https://example.com)', HIDDEN)
+    await clearPostedMessages(page)
+    await page
+      .locator('.mdpad-link-text')
+      .first()
+      .click({ modifiers: ['ControlOrMeta'] })
+    await page.waitForTimeout(100)
+    const posted = await getPostedMessages(page)
+    const openLinks = posted.filter(m => m.type === 'openLink')
+    expect(openLinks.length).toBe(1)
+    expect(openLinks[0].url).toBe('https://example.com')
+  })
+})

@@ -100,3 +100,28 @@ This line will cycle through heading levels
 ## Empty Section Below
 
 ### This heading has no content — it should NOT be foldable
+
+## Syntax Mode Test
+
+Set `mdpad.syntaxMode` to `hidden` and read back through this note. On every line the cursor is not on:
+
+- Heading `#` prefixes, `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `==highlight==`, `[link](url)` brackets, `> ` quote prefixes, and `- ` task bullets should all be gone.
+- Task checkboxes `[ ]` should still be visible and still clickable.
+- Table pipes, code fences, and the frontmatter `---` lines should be unchanged.
+
+Nested tasks must keep their indentation, and nothing inside the Code Blocks section above may change — a fenced block must render exactly the characters it contains in both modes.
+
+Move the cursor onto a line and its markers must come back immediately. Arrow up and down through the Lists and Code Blocks sections — the cursor must land where it looks like it should, with no skipped or doubled lines. Then set the setting back to `muted` and confirm the note renders exactly as it did before.
+
+## Team Notes Test
+
+Needs a real workspace folder. Work through in order:
+
+1. With no `.mdpad` folder present, confirm the title-bar icon still toggles Workspace ↔ Global as it always has, and the page picker lists only those two scopes.
+2. Run **mdpad: Switch to Team Notes** and accept the prompt. The folder appears, the view switches, and the title-bar icon now cycles through three scopes.
+3. Type into the team page. After about a third of a second a `note-YYYYMMDD-HHmmss.md` file appears in `.mdpad` containing what you typed.
+4. Create a page and do not type in it. No file appears — that is deliberate, not a bug.
+5. Open that `.md` file in a normal editor tab, change it, and save. The mdpad view updates to match, and your cursor stays where it was.
+6. Delete a page from mdpad: the file disappears. Delete a file from the explorer: the page disappears and the view moves to a neighbour.
+7. Run **mdpad: Copy Page To...** from Workspace scope, pick Team, and confirm a new file appears while the view stays put.
+8. Set `mdpad.teamNotesFolder` to `notes` while in Team scope. With no `notes` folder present the scope falls back to Workspace and the cycle drops to two stops.

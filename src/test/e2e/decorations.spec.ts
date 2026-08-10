@@ -181,3 +181,154 @@ test.describe('decorations', () => {
     })
   })
 })
+
+// The cursor sits at position 0 after `init`, so line 1 is always revealed.
+// Every hiding assertion below therefore targets line 2 or later; a marker
+// assertion written against line 1 fails for the right reason and reads as
+// though hidden mode is broken.
+const HIDDEN = { syntaxMode: 'hidden' } as const
+
+const lineText = (
+  page: import('@playwright/test').Page,
+  index: number,
+): Promise<string> =>
+  page
+    .locator('.cm-line')
+    .nth(index)
+    .textContent()
+    .then(t => t ?? '')
+
+test.describe('decorations — hidden mode', () => {
+  test('heading prefix is collapsed on an inactive line', async ({ page }) => {
+    await initEditor(page, 'anchor\n## heading', HIDDEN)
+    expect(await lineText(page, 1)).toBe('heading')
+  })
+
+  test('inline delimiters are collapsed on an inactive line', async ({
+    page,
+  }) => {
+    await initEditor(
+      page,
+      'anchor\n**bold** *it* ~~st~~ `code` ==mark==',
+      HIDDEN,
+    )
+    expect(await lineText(page, 1)).toBe('bold it st code mark')
+  })
+
+  test('link brackets and url are collapsed', async ({ page }) => {
+    await initEditor(page, 'anchor\n[link text](https://example.com)', HIDDEN)
+    expect(await lineText(page, 1)).toBe('link text')
+  })
+
+  test('blockquote prefix is collapsed', async ({ page }) => {
+    await initEditor(page, 'anchor\n> quoted', HIDDEN)
+    expect(await lineText(page, 1)).toBe('quoted')
+    await expect(page.locator('.mdpad-blockquote')).not.toHaveCount(0)
+  })
+
+  test('task bullet is collapsed but the checkbox stays visible', async ({
+    page,
+  }) => {
+    await initEditor(page, 'anchor\n- [ ] task', HIDDEN)
+    expect(await lineText(page, 1)).toBe('[ ] task')
+    await expect(page.locator('.mdpad-task-bracket').first()).toHaveText('[ ]')
+  })
+
+  test('content styling still applies to collapsed constructs', async ({
+    page,
+  }) => {
+    await initEditor(page, 'anchor\n## heading\n**bold**', HIDDEN)
+    await expect(page.locator('.mdpad-heading-2')).toHaveText('heading')
+    await expect(page.locator('.mdpad-bold').first()).toHaveText('bold')
+  })
+
+  test('tables, fences and frontmatter are left muted', async ({ page }) => {
+    await initEditor(
+      page,
+      '---\ntitle: T\n---\n\n| a | b |\n| - | - |\n\n```\ncode\n```',
+      HIDDEN,
+    )
+    // Line 1 is always revealed, so the frontmatter assertions target the key
+    // line and the closing fence, which are genuinely inactive.
+    expect(await lineText(page, 1)).toBe('title: T')
+    expect(await lineText(page, 2)).toBe('---')
+    expect(await lineText(page, 4)).toContain('|')
+    expect(await lineText(page, 7)).toBe('```')
+  })
+
+  test('nested task lists keep their indentation', async ({ page }) => {
+    await initEditor(
+      page,
+      'anchor\n- [ ] top\n  - [ ] nested one\n    - [ ] nested two',
+      HIDDEN,
+    )
+    expect(await lineText(page, 1)).toBe('[ ] top')
+    expect(await lineText(page, 2)).toBe('  [ ] nested one')
+    expect(await lineText(page, 3)).toBe('    [ ] nested two')
+  })
+
+  test('content inside a fenced code block is never collapsed', async ({
+    page,
+  }) => {
+    await initEditor(
+      page,
+      'anchor\n```\n- [ ] not a task\n1. not a list\n==not a highlight==\n```',
+      HIDDEN,
+    )
+    expect(await lineText(page, 2)).toBe('- [ ] not a task')
+    expect(await lineText(page, 3)).toBe('1. not a list')
+    expect(await lineText(page, 4)).toBe('==not a highlight==')
+  })
+
+  test('nested blockquote prefixes collapse together', async ({ page }) => {
+    await initEditor(page, 'anchor\n> > inner quote', HIDDEN)
+    expect(await lineText(page, 1)).toBe('inner quote')
+  })
+
+  test('ordered list numbers and bullets are left alone', async ({ page }) => {
+    await initEditor(page, 'anchor\n1. one\n- two', HIDDEN)
+    expect(await lineText(page, 1)).toBe('1. one')
+    expect(await lineText(page, 2)).toBe('- two')
+  })
+
+  test('document text is unchanged by hiding', async ({ page }) => {
+    const content = 'anchor\n## heading\n**bold**'
+    await initEditor(page, content, HIDDEN)
+    expect(await getEditorContent(page)).toBe(content)
+  })
+
+  test('clicking into a hidden line reveals it, leaving re-hides it', async ({
+    page,
+  }) => {
+    await initEditor(page, 'anchor\n## heading\ntail', HIDDEN)
+    expect(await lineText(page, 1)).toBe('heading')
+
+    await page.locator('.cm-line').nth(1).click()
+    await expect.poll(() => lineText(page, 1)).toBe('## heading')
+
+    await page.keyboard.press('Control+Home')
+    await expect.poll(() => lineText(page, 1)).toBe('heading')
+  })
+
+  test('a multi-line selection reveals every line it touches', async ({
+    page,
+  }) => {
+    await initEditor(page, 'anchor\n## one\n## two\n## three\n## four', HIDDEN)
+    await page.locator('.cm-line').nth(1).click()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('Shift+ArrowDown')
+    await page.keyboard.press('Shift+ArrowDown')
+
+    // The selection head lands on the first position of `## three`, so that
+    // line counts as touched too — three lines revealed, the fourth still hidden.
+    await expect.poll(() => lineText(page, 1)).toBe('## one')
+    await expect.poll(() => lineText(page, 2)).toBe('## two')
+    await expect.poll(() => lineText(page, 3)).toBe('## three')
+    await expect.poll(() => lineText(page, 4)).toBe('four')
+  })
+
+  test('muted mode still shows every marker', async ({ page }) => {
+    await initEditor(page, 'anchor\n## heading')
+    expect(await lineText(page, 1)).toBe('## heading')
+  })
+})

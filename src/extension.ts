@@ -1,22 +1,84 @@
 import * as vscode from 'vscode'
 import { deriveTitle } from './deriveTitle'
+import { type ExternalChange, FileNotesStorage } from './FileNotesStorage'
 import { NotesStorage } from './NotesStorage'
 import { PanelProvider } from './PanelProvider'
 import { SidebarProvider } from './SidebarProvider'
 import { searchLines } from './searchLines'
-import type { MdpadCommand, MdpadSettings } from './webview/types'
+import { slugify } from './slug'
+import type { INotesStorage } from './storageTypes'
+import type { MdpadCommand, MdpadSettings, SyntaxMode } from './webview/types'
 
-export const activate = (context: vscode.ExtensionContext): void => {
+type Scope = 'workspace' | 'global' | 'team'
+
+interface ScopeEntry {
+  label: string
+  icon: string
+  // Getters, not values: the team entry's storage object is replaced whenever
+  // mdpad.teamNotesFolder changes, and a captured reference would keep writing
+  // to the old folder.
+  storage: () => INotesStorage
+  available: () => boolean
+}
+
+// Cycle order for the title-bar scope button.
+const SCOPE_ORDER: Scope[] = ['workspace', 'global', 'team']
+
+const SCOPE_KEY = 'mdpad.scope'
+const TEAM_ACTIVE_KEY = 'mdpad.teamActiveId'
+const DEFAULT_TEAM_FOLDER = '.mdpad'
+
+// Module scope so deactivate() can flush pending writes at shutdown.
+let teamStorage: FileNotesStorage | undefined
+
+const configuredTeamFolder = (): string =>
+  vscode.workspace
+    .getConfiguration('mdpad')
+    .get<string>('teamNotesFolder', DEFAULT_TEAM_FOLDER) || DEFAULT_TEAM_FOLDER
+
+const teamFolderUri = (): vscode.Uri | undefined => {
+  const root = vscode.workspace.workspaceFolders?.[0]
+  if (!root) return undefined
+  // `.` and `..` are dropped rather than resolved: the setting names a folder
+  // inside the workspace, and a stray `../` in someone's settings.json should
+  // not put note files outside the repo they are meant to be committed to.
+  const segments = configuredTeamFolder()
+    .split(/[/\\]/)
+    .filter(segment => segment && segment !== '.' && segment !== '..')
+  if (segments.length === 0) return undefined
+  return vscode.Uri.joinPath(root.uri, ...segments)
+}
+
+export const activate = async (
+  context: vscode.ExtensionContext,
+): Promise<void> => {
   const workspaceStorage = new NotesStorage(context.workspaceState)
   const globalStorage = new NotesStorage(context.globalState)
 
-  const savedScope = context.workspaceState.get<'workspace' | 'global'>(
-    'mdpad.scope',
-  )
-  let currentScope: 'workspace' | 'global' = savedScope ?? 'workspace'
+  let currentScope: Scope = 'workspace'
 
-  const getActiveStorage = (): NotesStorage =>
-    currentScope === 'workspace' ? workspaceStorage : globalStorage
+  const SCOPES: Record<Scope, ScopeEntry> = {
+    workspace: {
+      label: 'Workspace',
+      icon: '$(root-folder)',
+      storage: () => workspaceStorage,
+      available: () => true,
+    },
+    global: {
+      label: 'Global',
+      icon: '$(globe)',
+      storage: () => globalStorage,
+      available: () => true,
+    },
+    team: {
+      label: 'Team',
+      icon: '$(organization)',
+      storage: () => teamStorage ?? workspaceStorage,
+      available: () => teamStorage?.isAvailable ?? false,
+    },
+  }
+
+  const getActiveStorage = (): INotesStorage => SCOPES[currentScope].storage()
 
   let mdpadFocused = false
 
@@ -42,8 +104,6 @@ export const activate = (context: vscode.ExtensionContext): void => {
     .get<boolean>('syncGlobalNotes', false)
   context.globalState.setKeysForSync(syncEnabled ? ['mdpad.notes'] : [])
 
-  vscode.commands.executeCommand('setContext', 'mdpad.scope', currentScope)
-
   const statusBar = vscode.window.createStatusBarItem(
     'mdpad-status',
     vscode.StatusBarAlignment.Right,
@@ -51,8 +111,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
   )
   context.subscriptions.push(statusBar)
 
-  const scopeLabel = (): string =>
-    currentScope === 'workspace' ? 'Workspace' : 'Global'
+  const scopeLabel = (): string => SCOPES[currentScope].label
 
   const getSettings = (): MdpadSettings => {
     const config = vscode.workspace.getConfiguration('mdpad')
@@ -63,6 +122,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
       lineNumbers: config.get<boolean>('lineNumbers', false),
       lineWrapping: config.get<boolean>('lineWrapping', true),
       folding: config.get<boolean>('folding', false),
+      syntaxMode: config.get<SyntaxMode>('syntaxMode', 'muted'),
     }
   }
 
@@ -91,8 +151,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
     const idx = state.pages.findIndex(p => p.id === state.activeId)
     const page = state.pages[idx]
     const title = page ? deriveTitle(page.content) : 'Empty note'
-    const scopeIcon =
-      currentScope === 'workspace' ? '$(root-folder)' : '$(globe)'
+    const scopeIcon = SCOPES[currentScope].icon
     statusBar.text = `$(notebook) ${title} (${idx + 1}/${state.pages.length}) · ${scopeIcon}`
     statusBar.tooltip = `mdpad — ${scopeLabel()}`
     statusBar.show()
@@ -105,12 +164,98 @@ export const activate = (context: vscode.ExtensionContext): void => {
     updateStatusBar()
   }
 
-  const setScope = (scope: 'workspace' | 'global'): void => {
+  // The team flush lives here rather than in setScope because selectPage and
+  // searchPages switch scope through applyScope directly.
+  const applyScope = (scope: Scope): void => {
+    if (currentScope === 'team' && scope !== 'team') {
+      void teamStorage?.flush()
+    }
     currentScope = scope
-    context.workspaceState.update('mdpad.scope', scope)
-    vscode.commands.executeCommand('setContext', 'mdpad.scope', scope)
+    context.workspaceState.update(SCOPE_KEY, scope)
+    vscode.commands.executeCommand('setContext', SCOPE_KEY, scope)
+  }
+
+  const setScope = (scope: Scope): void => {
+    applyScope(SCOPES[scope].available() ? scope : 'workspace')
     switchAndUpdate()
   }
+
+  const publishTeamAvailability = (): void => {
+    vscode.commands.executeCommand(
+      'setContext',
+      'mdpad.teamAvailable',
+      teamStorage?.isAvailable ?? false,
+    )
+  }
+
+  const postToActive = (message: {
+    type: 'replaceContent'
+    content: string
+  }): void => {
+    if (panelProvider.isActive) {
+      panelProvider.postMessage(message)
+    } else {
+      sidebarProvider.postMessage(message)
+    }
+  }
+
+  // Declared before buildTeamStorage so the closure handed to the storage is
+  // never constructed against an uninitialised binding.
+  const handleTeamExternalChange = (change: ExternalChange): void => {
+    if (currentScope !== 'team') return
+    if (change.activeContentChanged) {
+      const state = teamStorage?.getState()
+      const page = state?.pages.find(p => p.id === state.activeId)
+      postToActive({ type: 'replaceContent', content: page?.content ?? '' })
+    }
+    updateStatusBar()
+  }
+
+  const buildTeamStorage = (): FileNotesStorage | undefined => {
+    const folderUri = teamFolderUri()
+    if (!folderUri) return undefined
+    return new FileNotesStorage({
+      folderUri,
+      getActiveId: () => context.workspaceState.get<string>(TEAM_ACTIVE_KEY),
+      setActiveId: id => {
+        context.workspaceState.update(TEAM_ACTIVE_KEY, id)
+      },
+      onExternalChange: handleTeamExternalChange,
+      onUnavailable: () => {
+        publishTeamAvailability()
+        if (currentScope === 'team') setScope('workspace')
+      },
+    })
+  }
+
+  const reloadTeamStorage = async (): Promise<void> => {
+    if (teamStorage) {
+      await teamStorage.flush()
+      teamStorage.dispose()
+    }
+    teamStorage = buildTeamStorage()
+    await teamStorage?.initialize()
+    publishTeamAvailability()
+    if (currentScope !== 'team') return
+    if (teamStorage?.isAvailable) {
+      switchAndUpdate()
+    } else {
+      setScope('workspace')
+    }
+  }
+
+  teamStorage = buildTeamStorage()
+  await teamStorage?.initialize()
+  publishTeamAvailability()
+  context.subscriptions.push({
+    dispose: () => {
+      teamStorage?.dispose()
+    },
+  })
+
+  const savedScope = context.workspaceState.get<string>(SCOPE_KEY)
+  const restored = SCOPE_ORDER.find(scope => scope === savedScope)
+  applyScope(restored && SCOPES[restored].available() ? restored : 'workspace')
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -184,61 +329,42 @@ export const activate = (context: vscode.ExtensionContext): void => {
     }),
   )
 
+  const pageItems = (scope: Scope, isActiveScope: boolean) => {
+    const entry = SCOPES[scope]
+    const state = entry.storage().getState()
+    return state.pages.map((page, i) => ({
+      label: `${isActiveScope && page.id === state.activeId ? '$(check) ' : ''}${entry.icon} ${deriveTitle(page.content)}`,
+      description: `Page ${i + 1} · ${entry.label}`,
+      pageId: page.id,
+      scope,
+    }))
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand('mdpad.selectPage', async () => {
-      const activeState = getActiveStorage().getState()
-      const inactiveScope: 'workspace' | 'global' =
-        currentScope === 'workspace' ? 'global' : 'workspace'
-      const inactiveStorage =
-        currentScope === 'workspace' ? globalStorage : workspaceStorage
-      const inactiveState = inactiveStorage.getState()
-
-      const activeIcon =
-        currentScope === 'workspace' ? '$(root-folder)' : '$(globe)'
-      const inactiveIcon =
-        currentScope === 'workspace' ? '$(globe)' : '$(root-folder)'
-      const activeLabel = currentScope === 'workspace' ? 'Workspace' : 'Global'
-      const inactiveLabel =
-        currentScope === 'workspace' ? 'Global' : 'Workspace'
-
-      const activeItems = activeState.pages.map((page, i) => ({
-        label: `${page.id === activeState.activeId ? '$(check) ' : ''}${activeIcon} ${deriveTitle(page.content)}`,
-        description: `Page ${i + 1} · ${activeLabel}`,
-        pageId: page.id,
-        scope: currentScope,
-      }))
-
-      const inactiveItems = inactiveState.pages.map((page, i) => ({
-        label: `${inactiveIcon} ${deriveTitle(page.content)}`,
-        description: `Page ${i + 1} · ${inactiveLabel}`,
-        pageId: page.id,
-        scope: inactiveScope,
-      }))
-
       const separator = {
         label: '',
         kind: vscode.QuickPickItemKind.Separator,
       }
 
-      const allItems = [
-        ...activeItems,
-        ...(inactiveItems.length > 0 ? [separator, ...inactiveItems] : []),
-      ]
+      const allItems: (
+        | ReturnType<typeof pageItems>[number]
+        | typeof separator
+      )[] = [...pageItems(currentScope, true)]
+
+      for (const scope of SCOPE_ORDER) {
+        if (scope === currentScope || !SCOPES[scope].available()) continue
+        const items = pageItems(scope, false)
+        if (items.length === 0) continue
+        allItems.push(separator, ...items)
+      }
 
       const picked = await vscode.window.showQuickPick(allItems, {
-        placeHolder: `Select a page (${activeLabel})`,
+        placeHolder: `Select a page (${scopeLabel()})`,
       })
 
       if (picked && 'pageId' in picked) {
-        if (picked.scope !== currentScope) {
-          currentScope = picked.scope as 'workspace' | 'global'
-          context.workspaceState.update('mdpad.scope', currentScope)
-          vscode.commands.executeCommand(
-            'setContext',
-            'mdpad.scope',
-            currentScope,
-          )
-        }
+        if (picked.scope !== currentScope) applyScope(picked.scope)
         getActiveStorage().switchPage(picked.pageId)
         switchAndUpdate()
       }
@@ -258,16 +384,99 @@ export const activate = (context: vscode.ExtensionContext): void => {
   )
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('mdpad.switchToTeam', async () => {
+      if (!vscode.workspace.workspaceFolders?.[0]) {
+        vscode.window.showErrorMessage(
+          'mdpad: team notes need an open workspace folder.',
+        )
+        return
+      }
+
+      if (!teamStorage) {
+        teamStorage = buildTeamStorage()
+        // Probe before prompting, or the modal offers to create a folder that
+        // is already sitting there.
+        await teamStorage?.initialize()
+        publishTeamAvailability()
+      }
+      if (!teamStorage) {
+        vscode.window.showErrorMessage(
+          `mdpad: "${configuredTeamFolder()}" is not a usable team notes folder name — set mdpad.teamNotesFolder to a folder inside the workspace.`,
+        )
+        return
+      }
+
+      if (!teamStorage.isAvailable) {
+        const folderName = configuredTeamFolder()
+        const choice = await vscode.window.showInformationMessage(
+          `Create "${folderName}" for team notes?`,
+          {
+            modal: true,
+            detail:
+              'mdpad will store one markdown file per page in this folder, so the notes can be committed and shared with your team.',
+          },
+          'Create Folder',
+        )
+        if (choice !== 'Create Folder') return
+        try {
+          await vscode.workspace.fs.createDirectory(teamStorage.folderUri)
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `mdpad: could not create ${folderName} — ${err instanceof Error ? err.message : String(err)}`,
+          )
+          return
+        }
+        await teamStorage.initialize()
+        publishTeamAvailability()
+      }
+
+      if (!teamStorage.isAvailable) return
+      setScope('team')
+    }),
+  )
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mdpad.copyPageTo', async () => {
+      const state = getActiveStorage().getState()
+      const page = state.pages.find(p => p.id === state.activeId)
+      if (!page) return
+
+      const targets = SCOPE_ORDER.filter(
+        scope => scope !== currentScope && SCOPES[scope].available(),
+      )
+      if (targets.length === 0) {
+        vscode.window.showInformationMessage(
+          'mdpad: no other note scope is available to copy into.',
+        )
+        return
+      }
+
+      const picked = await vscode.window.showQuickPick(
+        targets.map(scope => ({
+          label: `${SCOPES[scope].icon} ${SCOPES[scope].label}`,
+          scope,
+        })),
+        { placeHolder: `Copy "${deriveTitle(page.content)}" to…` },
+      )
+      if (!picked) return
+
+      const target = SCOPES[picked.scope].storage()
+      const created = target.newPage()
+      target.updateContent(created.activeId, page.content)
+      vscode.window.showInformationMessage(
+        `mdpad: copied to ${SCOPES[picked.scope].label} notes.`,
+      )
+      updateStatusBar()
+    }),
+  )
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('mdpad.exportPage', async () => {
       const state = getActiveStorage().getState()
       const page = state.pages.find(p => p.id === state.activeId)
       if (!page) return
       const title = deriveTitle(page.content)
-      const fileName =
-        title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '') || 'note'
+      const fileName = slugify(title)
       const uri = await vscode.window.showSaveDialog({
         defaultUri: vscode.Uri.file(`${fileName}.md`),
         filters: { Markdown: ['md'] },
@@ -320,7 +529,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
     vscode.commands.registerCommand('mdpad.searchPages', () => {
       type SearchResult = vscode.QuickPickItem & {
         pageId: string
-        scope: 'workspace' | 'global'
+        scope: Scope
         cursorPos: number
       }
 
@@ -335,17 +544,14 @@ export const activate = (context: vscode.ExtensionContext): void => {
           }
           const results: SearchResult[] = []
 
-          const searchScope = (
-            storage: NotesStorage,
-            scope: 'workspace' | 'global',
-            icon: string,
-            scopeLabel: string,
-          ) => {
-            for (const page of storage.getState().pages) {
+          for (const scope of SCOPE_ORDER) {
+            const entry = SCOPES[scope]
+            if (!entry.available()) continue
+            for (const page of entry.storage().getState().pages) {
               for (const match of searchLines(page.content, query)) {
                 results.push({
-                  label: `${icon} ${deriveTitle(page.content)}`,
-                  description: `${scopeLabel} · line ${match.lineNum}`,
+                  label: `${entry.icon} ${deriveTitle(page.content)}`,
+                  description: `${entry.label} · line ${match.lineNum}`,
                   detail: match.line,
                   pageId: page.id,
                   scope,
@@ -355,14 +561,6 @@ export const activate = (context: vscode.ExtensionContext): void => {
               }
             }
           }
-
-          searchScope(
-            workspaceStorage,
-            'workspace',
-            '$(root-folder)',
-            'Workspace',
-          )
-          searchScope(globalStorage, 'global', '$(globe)', 'Global')
           qp.items = results
         }),
       )
@@ -370,15 +568,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
       qp.onDidAccept(() => {
         const picked = qp.selectedItems[0]
         if (picked) {
-          if (picked.scope !== currentScope) {
-            currentScope = picked.scope
-            context.workspaceState.update('mdpad.scope', currentScope)
-            vscode.commands.executeCommand(
-              'setContext',
-              'mdpad.scope',
-              currentScope,
-            )
-          }
+          if (picked.scope !== currentScope) applyScope(picked.scope)
           getActiveStorage().switchPage(picked.pageId)
           switchAndUpdate()
           sendCursorToActive(picked.cursorPos)
@@ -483,10 +673,18 @@ export const activate = (context: vscode.ExtensionContext): void => {
           .get<boolean>('syncGlobalNotes', false)
         context.globalState.setKeysForSync(sync ? ['mdpad.notes'] : [])
       }
+      // Additive, not `else if`: the first branch above matches every mdpad
+      // key, so chaining would swallow a folder change made in the same event
+      // as any other setting.
+      if (e.affectsConfiguration('mdpad.teamNotesFolder')) {
+        void reloadTeamStorage()
+      }
     }),
   )
 
   updateStatusBar()
 }
 
-export const deactivate = (): void => {}
+export const deactivate = async (): Promise<void> => {
+  await teamStorage?.flush()
+}

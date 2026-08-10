@@ -1,4 +1,5 @@
 import type * as vscode from 'vscode'
+import type { INotesStorage } from './storageTypes'
 import type { NotesState, Page } from './webview/types'
 
 const STORAGE_KEY = 'mdpad.notes'
@@ -48,8 +49,9 @@ Your markdown notepad inside VS Code.
 | \`Tab\` / \`Shift+Tab\` | Indent / outdent list |
 | \`Alt+↑\` / \`Alt+↓\` | Move line up / down |
 
-- Globe icon: switch to Global notes
-- Overflow menu: Export, Settings
+- Title bar icon: switch note scope — Workspace, Global, and Team once a team notes folder exists
+- Overflow menu: Export, Copy Page To..., Settings
+- Prefer reading over markup? Set \`mdpad.syntaxMode\` to \`hidden\`.
 
 > Delete this page whenever you're ready to start fresh.
 `
@@ -59,7 +61,7 @@ const createPage = (content = ''): Page => ({
   content,
 })
 
-export class NotesStorage {
+export class NotesStorage implements INotesStorage {
   private cachedState: NotesState | undefined
 
   constructor(private readonly state: vscode.Memento) {}

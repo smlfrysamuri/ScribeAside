@@ -112,6 +112,18 @@
         "icon": "$(root-folder)"
       },
       {
+        "command": "mdpad.switchToTeam",
+        "title": "Switch to Team Notes",
+        "category": "mdpad",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "mdpad.copyPageTo",
+        "title": "Copy Page To...",
+        "category": "mdpad",
+        "icon": "$(copy)"
+      },
+      {
         "command": "mdpad.searchPages",
         "title": "Search Across Pages",
         "category": "mdpad",
@@ -194,9 +206,19 @@
           "when": "view == mdpad.notesView && mdpad.scope == workspace"
         },
         {
+          "command": "mdpad.switchToTeam",
+          "group": "navigation@5",
+          "when": "view == mdpad.notesView && mdpad.scope == global && mdpad.teamAvailable"
+        },
+        {
           "command": "mdpad.switchToWorkspace",
           "group": "navigation@5",
-          "when": "view == mdpad.notesView && mdpad.scope == global"
+          "when": "view == mdpad.notesView && mdpad.scope == global && !mdpad.teamAvailable"
+        },
+        {
+          "command": "mdpad.switchToWorkspace",
+          "group": "navigation@5",
+          "when": "view == mdpad.notesView && mdpad.scope == team"
         },
         {
           "command": "mdpad.searchPages",
@@ -216,6 +238,11 @@
         {
           "command": "mdpad.exportPage",
           "group": "2_mdpad@2",
+          "when": "view == mdpad.notesView"
+        },
+        {
+          "command": "mdpad.copyPageTo",
+          "group": "2_mdpad@3",
           "when": "view == mdpad.notesView"
         },
         {
@@ -341,6 +368,24 @@
           "type": "boolean",
           "default": false,
           "description": "Show line numbers in the gutter."
+        },
+        "mdpad.syntaxMode": {
+          "type": "string",
+          "enum": [
+            "muted",
+            "hidden"
+          ],
+          "enumDescriptions": [
+            "Markdown characters stay visible but dimmed.",
+            "Markdown characters are hidden, except on lines the cursor or selection touches."
+          ],
+          "default": "muted",
+          "description": "How markdown syntax characters are rendered."
+        },
+        "mdpad.teamNotesFolder": {
+          "type": "string",
+          "default": ".mdpad",
+          "description": "Folder for team notes, relative to the first workspace folder. One markdown file per page, so the notes can be committed to git."
         },
         "mdpad.syncGlobalNotes": {
           "type": "boolean",

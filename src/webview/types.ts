@@ -23,6 +23,8 @@ export type MdpadCommand =
   | 'toggleHighlight'
   | 'toggleHeading'
 
+export type SyntaxMode = 'muted' | 'hidden'
+
 export interface MdpadSettings {
   fontFamily: string
   lineHeight: number
@@ -30,11 +32,13 @@ export interface MdpadSettings {
   lineNumbers: boolean
   lineWrapping: boolean
   folding: boolean
+  syntaxMode: SyntaxMode
 }
 
 // Extension -> Webview messages
 export type ExtensionMessage =
   | { type: 'init'; content: string }
+  | { type: 'replaceContent'; content: string }
   | { type: 'command'; command: MdpadCommand }
   | ({ type: 'settings' } & MdpadSettings)
   | { type: 'setCursor'; pos: number }

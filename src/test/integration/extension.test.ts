@@ -22,6 +22,8 @@ suite('Extension', () => {
     'mdpad.searchPages',
     'mdpad.switchToGlobal',
     'mdpad.switchToWorkspace',
+    'mdpad.switchToTeam',
+    'mdpad.copyPageTo',
     'mdpad.toggleBold',
     'mdpad.toggleItalic',
     'mdpad.toggleStrikethrough',

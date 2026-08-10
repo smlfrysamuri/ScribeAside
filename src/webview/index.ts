@@ -15,20 +15,35 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi()
 
+const SAVE_DEBOUNCE_MS = 500
+// Continuous typing restarts the trailing debounce on every keystroke, so
+// without a ceiling a fast typist can hold a whole paragraph in the webview
+// and never hand it to the extension host.
+const SAVE_MAX_WAIT_MS = 2000
+
 let editor: EditorHandle | undefined
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
+let firstUnsentChangeAt: number | undefined
 
-const debounce = (fn: () => void, ms: number): void => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-  }
-  debounceTimer = setTimeout(fn, ms)
+// The last content the host and the webview agreed on: set when the host sends
+// content, and again when a local edit is posted back.
+let syncedContent = ''
+
+const postContent = (content: string): void => {
+  syncedContent = content
+  firstUnsentChangeAt = undefined
+  vscode.postMessage({ type: 'updateContent', content })
 }
 
 const handleContentChange = (content: string): void => {
-  debounce(() => {
-    vscode.postMessage({ type: 'updateContent', content })
-  }, 500)
+  if (debounceTimer) clearTimeout(debounceTimer)
+  const now = Date.now()
+  if (firstUnsentChangeAt === undefined) firstUnsentChangeAt = now
+  const remaining = Math.max(
+    0,
+    Math.min(SAVE_DEBOUNCE_MS, firstUnsentChangeAt + SAVE_MAX_WAIT_MS - now),
+  )
+  debounceTimer = setTimeout(() => postContent(content), remaining)
 }
 
 const handleOpenLink = (url: string): void => {
@@ -55,8 +70,24 @@ const init = (): void => {
       const message = event.data
       switch (message.type) {
         case 'init': {
+          syncedContent = message.content
           editor?.setContent(message.content)
           editor?.view.focus()
+          break
+        }
+        // Deliberately no focus(): this arrives when someone else edited the
+        // file, which must not pull the caret out of whatever the user is
+        // typing in. setContent's whole-document dispatch clamps the cursor.
+        case 'replaceContent': {
+          if (!editor) break
+          // Local edits the host has not seen yet outrank a remote update.
+          // Applying it here would destroy unsaved keystrokes, which nothing
+          // can recover; skipping it loses a remote change that is still in
+          // the file and in git, and the local edit wins by the documented
+          // last-writer-wins rule a moment later.
+          if (editor.view.state.doc.toString() !== syncedContent) break
+          syncedContent = message.content
+          editor.setContent(message.content)
           break
         }
         case 'command': {

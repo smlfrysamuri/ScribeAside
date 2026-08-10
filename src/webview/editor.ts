@@ -9,7 +9,12 @@ import {
   syntaxHighlighting,
   toggleFold,
 } from '@codemirror/language'
-import { Compartment, EditorState, Prec } from '@codemirror/state'
+import {
+  Compartment,
+  EditorState,
+  type Extension,
+  Prec,
+} from '@codemirror/state'
 import {
   Decoration,
   type DecorationSet,
@@ -35,7 +40,7 @@ import {
   ulMarkers,
 } from './listPatterns'
 import { tableAutoFormat } from './tableFormatter'
-import type { MdpadSettings } from './types'
+import type { MdpadSettings, SyntaxMode } from './types'
 
 export const wrapSelection = (view: EditorView, marker: string): boolean => {
   const { from, to } = view.state.selection.main
@@ -567,6 +572,20 @@ const vsCodeTheme = EditorView.theme({
 
 const codeMirrorSettings = new Compartment()
 
+// The decoration plugin gets its own compartment so it keeps the exact
+// extension-list position it had before hidden mode existed — decoration
+// precedence decides DOM nesting when marks overlap, and muted mode has to
+// render identically.
+const syntaxModeExtension = new Compartment()
+
+// Built once per mode and reused: a compartment reconfigured with the same
+// plugin value keeps the running instance, so a settings message that does not
+// change the mode does not throw away the cached document scan.
+const decorationPlugins: Record<SyntaxMode, Extension> = {
+  muted: markdownDecorations('muted'),
+  hidden: markdownDecorations('hidden'),
+}
+
 const buildSettingsExtensions = (settings: MdpadSettings) => {
   const fontFamily =
     settings.fontFamily === 'inherit'
@@ -628,6 +647,7 @@ export const createEditor = (
             lineNumbers: false,
             lineWrapping: true,
             folding: false,
+            syntaxMode: 'muted',
           }),
         ),
         markdown({ extensions: GFM, codeLanguages }),
@@ -646,7 +666,7 @@ export const createEditor = (
         Prec.highest(keymap.of(mdHighPrecedenceKeymap)),
         keymap.of([...mdKeymap, ...defaultKeymap, ...historyKeymap]),
         updateListener,
-        markdownDecorations,
+        syntaxModeExtension.of(decorationPlugins.muted),
         tableAutoFormat,
         pasteAsLink,
         autoCloseFence,
@@ -670,9 +690,17 @@ export const createEditor = (
   const applySettings = (settings: MdpadSettings): void => {
     setListIndent(settings.listIndentSize)
     view.dispatch({
-      effects: codeMirrorSettings.reconfigure(
-        buildSettingsExtensions(settings),
-      ),
+      effects: [
+        codeMirrorSettings.reconfigure(buildSettingsExtensions(settings)),
+        // Explicit branch rather than an index: syntaxMode arrives from user
+        // settings.json, where "constructor" would otherwise resolve through
+        // the object prototype and blow up inside the dispatch.
+        syntaxModeExtension.reconfigure(
+          settings.syntaxMode === 'hidden'
+            ? decorationPlugins.hidden
+            : decorationPlugins.muted,
+        ),
+      ],
     })
   }
 

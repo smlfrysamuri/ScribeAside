@@ -39,6 +39,55 @@ test.describe('folding', () => {
     expect(count).toBeGreaterThan(0)
   })
 
+  // Fold ranges start at `line.to` and heading markers start at `line.from`,
+  // so the two decoration sources should not collide. This is the case that
+  // proves it rather than assuming it.
+  test.describe('fold interaction', () => {
+    test('fold chevron still appears with syntax hidden', async ({ page }) => {
+      await initEditor(page, '# title\n\n## section\n\ncontent', {
+        folding: true,
+        syntaxMode: 'hidden',
+      })
+      const count = await page.locator('.mdpad-foldable').count()
+      expect(count).toBeGreaterThan(0)
+    })
+
+    // Run the same fold/unfold sequence in both modes. Muted is the control:
+    // if the click mechanism itself does not work in the harness, both fail
+    // together and the failure is not about hidden mode.
+    for (const syntaxMode of ['muted', 'hidden'] as const) {
+      test(`folding then unfolding a section works in ${syntaxMode} mode`, async ({
+        page,
+      }) => {
+        await initEditor(page, '# title\n\n## section\n\ncontent here', {
+          folding: true,
+          syntaxMode,
+        })
+
+        const clickChevron = async () => {
+          const box = await page
+            .locator('.mdpad-foldable')
+            .first()
+            .boundingBox()
+          if (!box) throw new Error('foldable line has no box')
+          await page.mouse.click(box.x + box.width - 8, box.y + box.height / 2)
+        }
+
+        const rendered = () =>
+          page
+            .locator('.cm-content')
+            .textContent()
+            .then(t => t ?? '')
+
+        await clickChevron()
+        await expect.poll(rendered).not.toContain('content here')
+
+        await clickChevron()
+        await expect.poll(rendered).toContain('content here')
+      })
+    }
+  })
+
   test.describe('lifecycle', () => {
     // Regression guard for inlineFoldWidgets.destroy(): toggling folding on
     // and off must call removeEventListener for every addEventListener made

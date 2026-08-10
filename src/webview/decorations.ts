@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language'
-import type { Range, Text } from '@codemirror/state'
+import type { EditorState, Range, Text } from '@codemirror/state'
 import {
   Decoration,
   type DecorationSet,
@@ -8,7 +8,15 @@ import {
   type ViewUpdate,
 } from '@codemirror/view'
 import { findFrontmatterEndLine } from './frontmatter'
+import {
+  computeActiveLines,
+  type DecorationEntry,
+  type MarkerConstruct,
+  materialize,
+  NO_ACTIVE_RANGES,
+} from './hiddenRanges'
 import { olPattern, ulPattern } from './listPatterns'
+import type { SyntaxMode } from './types'
 
 // ---------------------------------------------------------------------------
 // Decoration constants
@@ -44,12 +52,58 @@ const headingConfig: Record<string, number> = {
 }
 
 // ---------------------------------------------------------------------------
+// Entry emission
+// ---------------------------------------------------------------------------
+
+const pushStyle = (
+  entries: DecorationEntry[],
+  deco: Decoration,
+  from: number,
+  to: number,
+): void => {
+  entries.push({ kind: 'style', range: deco.range(from, to) })
+}
+
+const pushLine = (
+  entries: DecorationEntry[],
+  deco: Decoration,
+  at: number,
+): void => {
+  entries.push({ kind: 'style', range: deco.range(at) })
+}
+
+const pushMarker = (
+  entries: DecorationEntry[],
+  from: number,
+  to: number,
+  construct: MarkerConstruct,
+  options: {
+    deco?: Decoration
+    hideFrom?: number
+    hideTo?: number
+  } = {},
+): void => {
+  entries.push({
+    kind: 'marker',
+    from,
+    to,
+    construct,
+    deco: options.deco ?? muted,
+    hideFrom: options.hideFrom,
+    hideTo: options.hideTo,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Per-node-type decoration helpers
 // ---------------------------------------------------------------------------
 
 const linkPattern = /^\[(.+?)\]\((.+?)\)$/
 const taskListPattern = /^(\s*[-*+]\s+)\[([ xX])\]\s/
 const blockquotePrefixPattern = /^>\s?/
+// Every `>` on the line, so hidden mode does not strand the inner marker of a
+// nested quote. Muted mode still dims only the first, as it always has.
+const blockquoteFullPrefixPattern = /^(?:>\s?)+/
 const tableSeparatorPattern = /^\|?[\s-:|]+\|?$/
 const headingPattern = /^(#{1,6})\s/
 const highlightPattern = /==(.*?)==/g
@@ -58,7 +112,7 @@ const uncheckedBoxPattern = /\[ \]/
 const inlineLinkPattern = /\[.+?\]\((.+?)\)/
 
 const decorateHeading = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -69,15 +123,17 @@ const decorateHeading = (
   if (hashMatch) {
     const prefixEnd = from + hashMatch[0].length
     const level = headingConfig[name]
-    decorations.push(headingPrefixMark.range(from, prefixEnd))
+    pushMarker(entries, from, prefixEnd, 'heading', {
+      deco: headingPrefixMark,
+    })
     if (prefixEnd < to) {
-      decorations.push(headingMarks[level].range(prefixEnd, to))
+      pushStyle(entries, headingMarks[level], prefixEnd, to)
     }
   }
 }
 
 const decorateStrongEmphasis = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -86,14 +142,14 @@ const decorateStrongEmphasis = (
   const marker = text.startsWith('**') ? '**' : '__'
   const mLen = marker.length
   if (to - from > mLen * 2) {
-    decorations.push(muted.range(from, from + mLen))
-    decorations.push(boldMark.range(from + mLen, to - mLen))
-    decorations.push(muted.range(to - mLen, to))
+    pushMarker(entries, from, from + mLen, 'emphasis')
+    pushStyle(entries, boldMark, from + mLen, to - mLen)
+    pushMarker(entries, to - mLen, to, 'emphasis')
   }
 }
 
 const decorateEmphasis = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -102,38 +158,38 @@ const decorateEmphasis = (
   const marker = text.startsWith('*') ? '*' : '_'
   const mLen = marker.length
   if (to - from > mLen * 2) {
-    decorations.push(muted.range(from, from + mLen))
-    decorations.push(italicMark.range(from + mLen, to - mLen))
-    decorations.push(muted.range(to - mLen, to))
+    pushMarker(entries, from, from + mLen, 'emphasis')
+    pushStyle(entries, italicMark, from + mLen, to - mLen)
+    pushMarker(entries, to - mLen, to, 'emphasis')
   }
 }
 
 const decorateStrikethrough = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   from: number,
   to: number,
 ): void => {
   if (to - from > 4) {
-    decorations.push(muted.range(from, from + 2))
-    decorations.push(strikeMark.range(from + 2, to - 2))
-    decorations.push(muted.range(to - 2, to))
+    pushMarker(entries, from, from + 2, 'emphasis')
+    pushStyle(entries, strikeMark, from + 2, to - 2)
+    pushMarker(entries, to - 2, to, 'emphasis')
   }
 }
 
 const decorateInlineCode = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   from: number,
   to: number,
 ): void => {
   if (to - from > 2) {
-    decorations.push(muted.range(from, from + 1))
-    decorations.push(inlineCodeMark.range(from + 1, to - 1))
-    decorations.push(muted.range(to - 1, to))
+    pushMarker(entries, from, from + 1, 'emphasis')
+    pushStyle(entries, inlineCodeMark, from + 1, to - 1)
+    pushMarker(entries, to - 1, to, 'emphasis')
   }
 }
 
 const decorateLink = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -142,16 +198,16 @@ const decorateLink = (
   const match = text.match(linkPattern)
   if (match) {
     const textEnd = from + 1 + match[1].length
-    decorations.push(muted.range(from, from + 1))
-    decorations.push(linkTextMark.range(from + 1, textEnd))
-    decorations.push(muted.range(textEnd, textEnd + 2))
-    decorations.push(muted.range(textEnd + 2, to - 1))
-    decorations.push(muted.range(to - 1, to))
+    pushMarker(entries, from, from + 1, 'link')
+    pushStyle(entries, linkTextMark, from + 1, textEnd)
+    pushMarker(entries, textEnd, textEnd + 2, 'link')
+    pushMarker(entries, textEnd + 2, to - 1, 'link')
+    pushMarker(entries, to - 1, to, 'link')
   }
 }
 
 const decorateBlockquote = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -160,12 +216,17 @@ const decorateBlockquote = (
   const endLine = doc.lineAt(to)
   for (let i = startLine.number; i <= endLine.number; i++) {
     const line = doc.line(i)
-    decorations.push(
-      Decoration.line({ class: 'mdpad-blockquote' }).range(line.from),
-    )
+    pushLine(entries, Decoration.line({ class: 'mdpad-blockquote' }), line.from)
     const bqMatch = line.text.match(blockquotePrefixPattern)
     if (bqMatch) {
-      decorations.push(muted.range(line.from, line.from + bqMatch[0].length))
+      const fullMatch = line.text.match(blockquoteFullPrefixPattern)
+      pushMarker(
+        entries,
+        line.from,
+        line.from + bqMatch[0].length,
+        'blockquote',
+        { hideTo: line.from + (fullMatch?.[0].length ?? bqMatch[0].length) },
+      )
     }
   }
 }
@@ -173,9 +234,10 @@ const decorateBlockquote = (
 const listBulletMark = Decoration.mark({ class: 'mdpad-list-bullet' })
 
 const decorateListItem = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
+  insideCode = false,
 ): void => {
   const line = doc.lineAt(from)
   const taskMatch = line.text.match(taskListPattern)
@@ -185,21 +247,26 @@ const decorateListItem = (
     const bracketEnd = dashEnd + 3
     const contentStart = bracketEnd + 1
     const isChecked = taskMatch[2] !== ' '
+    // taskListPattern's first group swallows the leading indentation, and
+    // collapsing that would flatten every nested task to the left margin.
+    const indentLength = taskMatch[1].length - taskMatch[1].trimStart().length
 
-    decorations.push(muted.range(line.from, dashEnd))
-    decorations.push(
-      Decoration.mark({ class: 'mdpad-task-bracket' }).range(
-        bracketStart,
-        bracketEnd,
-      ),
+    pushMarker(entries, line.from, dashEnd, insideCode ? 'code' : 'task', {
+      hideFrom: line.from + indentLength,
+    })
+    pushStyle(
+      entries,
+      Decoration.mark({ class: 'mdpad-task-bracket' }),
+      bracketStart,
+      bracketEnd,
     )
 
     if (isChecked && contentStart < line.to) {
-      decorations.push(
-        Decoration.mark({ class: 'mdpad-task-checked' }).range(
-          contentStart,
-          line.to,
-        ),
+      pushStyle(
+        entries,
+        Decoration.mark({ class: 'mdpad-task-checked' }),
+        contentStart,
+        line.to,
       )
     }
     return
@@ -209,7 +276,7 @@ const decorateListItem = (
   if (ulMatch) {
     const markerStart = line.from + ulMatch[1].length
     const markerEnd = markerStart + ulMatch[2].length
-    decorations.push(listBulletMark.range(markerStart, markerEnd))
+    pushStyle(entries, listBulletMark, markerStart, markerEnd)
     return
   }
 
@@ -217,24 +284,24 @@ const decorateListItem = (
   if (olMatch) {
     const markerStart = line.from + olMatch[1].length
     const markerEnd = markerStart + olMatch[2].length + olMatch[3].length
-    decorations.push(muted.range(markerStart, markerEnd))
+    pushMarker(entries, markerStart, markerEnd, insideCode ? 'code' : 'ol')
     return
   }
 }
 
 const decorateHorizontalRule = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
 ): void => {
   const line = doc.lineAt(from)
-  decorations.push(muted.range(from, to))
-  decorations.push(Decoration.line({ class: 'mdpad-hr' }).range(line.from))
+  pushMarker(entries, from, to, 'hr')
+  pushLine(entries, Decoration.line({ class: 'mdpad-hr' }), line.from)
 }
 
 const decorateFencedCode = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -250,16 +317,14 @@ const decorateFencedCode = (
       (i === startLine.number || i === endLine.number) &&
       line.from < line.to
     ) {
-      decorations.push(muted.range(line.from, line.to))
+      pushMarker(entries, line.from, line.to, 'fence')
     }
-    decorations.push(
-      Decoration.line({ class: 'mdpad-code-line' }).range(line.from),
-    )
+    pushLine(entries, Decoration.line({ class: 'mdpad-code-line' }), line.from)
   }
 }
 
 const decorateTable = (
-  decorations: Range<Decoration>[],
+  entries: DecorationEntry[],
   doc: Text,
   from: number,
   to: number,
@@ -274,31 +339,31 @@ const decorateTable = (
     const isSeparator = tableSeparatorPattern.test(lineText)
 
     if (isSeparator) {
-      decorations.push(muted.range(line.from, line.to))
+      pushMarker(entries, line.from, line.to, 'table')
     } else {
       for (let j = 0; j < lineText.length; j++) {
         if (lineText[j] === '|') {
-          decorations.push(muted.range(line.from + j, line.from + j + 1))
+          pushMarker(entries, line.from + j, line.from + j + 1, 'table')
         }
       }
       if (i === startLine.number) {
-        decorations.push(
-          Decoration.line({ class: 'mdpad-table-header' }).range(line.from),
+        pushLine(
+          entries,
+          Decoration.line({ class: 'mdpad-table-header' }),
+          line.from,
         )
       }
     }
-    decorations.push(
-      Decoration.line({ class: 'mdpad-table-line' }).range(line.from),
-    )
+    pushLine(entries, Decoration.line({ class: 'mdpad-table-line' }), line.from)
   }
 }
 
 // ---------------------------------------------------------------------------
-// Build decorations
+// Scan
 // ---------------------------------------------------------------------------
 
-const buildDecorations = (view: EditorView): DecorationSet => {
-  const decorations: Range<Decoration>[] = []
+const scanDecorations = (view: EditorView): DecorationEntry[] => {
+  const entries: DecorationEntry[] = []
   const tree = syntaxTree(view.state)
   const doc = view.state.doc
 
@@ -308,6 +373,17 @@ const buildDecorations = (view: EditorView): DecorationSet => {
     frontmatterEndLine > 0 ? doc.line(frontmatterEndLine).to : -1
 
   const listItemLines = new Set<number>()
+  // Lines belonging to a code block. The two regex passes below run over raw
+  // line text and cannot tell code from prose; in muted mode a stray dimmed
+  // marker inside a fence was cosmetic, but hidden mode would collapse it and
+  // silently change what the code block appears to contain.
+  const codeLines = new Set<number>()
+
+  const recordCodeLines = (from: number, to: number): void => {
+    const first = doc.lineAt(from).number
+    const last = doc.lineAt(to).number
+    for (let i = first; i <= last; i++) codeLines.add(i)
+  }
 
   tree.iterate({
     enter(node) {
@@ -315,48 +391,53 @@ const buildDecorations = (view: EditorView): DecorationSet => {
       if (frontmatterEnd >= 0 && from < frontmatterEnd) return
 
       if (headingConfig[name]) {
-        decorateHeading(decorations, doc, from, to, name)
+        decorateHeading(entries, doc, from, to, name)
         return
       }
       if (name === 'StrongEmphasis') {
-        decorateStrongEmphasis(decorations, doc, from, to)
+        decorateStrongEmphasis(entries, doc, from, to)
         return
       }
       if (name === 'Emphasis') {
-        decorateEmphasis(decorations, doc, from, to)
+        decorateEmphasis(entries, doc, from, to)
         return
       }
       if (name === 'Strikethrough') {
-        decorateStrikethrough(decorations, from, to)
+        decorateStrikethrough(entries, from, to)
         return
       }
       if (name === 'InlineCode') {
-        decorateInlineCode(decorations, from, to)
+        decorateInlineCode(entries, from, to)
         return
       }
       if (name === 'Link') {
-        decorateLink(decorations, doc, from, to)
+        decorateLink(entries, doc, from, to)
         return
       }
       if (name === 'Blockquote') {
-        decorateBlockquote(decorations, doc, from, to)
+        decorateBlockquote(entries, doc, from, to)
         return
       }
       if (name === 'ListItem') {
-        decorateListItem(decorations, doc, from)
+        decorateListItem(entries, doc, from)
         listItemLines.add(doc.lineAt(from).number)
         return
       }
       if (name === 'HorizontalRule') {
-        decorateHorizontalRule(decorations, doc, from, to)
+        decorateHorizontalRule(entries, doc, from, to)
         return
       }
       if (name === 'FencedCode') {
-        decorateFencedCode(decorations, doc, from, to)
+        decorateFencedCode(entries, doc, from, to)
+        recordCodeLines(from, to)
+        return
+      }
+      if (name === 'CodeBlock') {
+        recordCodeLines(from, to)
         return
       }
       if (name === 'Table') {
-        decorateTable(decorations, doc, from, to)
+        decorateTable(entries, doc, from, to)
         return
       }
     },
@@ -367,22 +448,22 @@ const buildDecorations = (view: EditorView): DecorationSet => {
     if (listItemLines.has(i)) continue
     const line = doc.line(i)
     if (frontmatterEnd >= 0 && line.from < frontmatterEnd) continue
-    decorateListItem(decorations, doc, line.from)
+    decorateListItem(entries, doc, line.from, codeLines.has(i))
   }
 
   // Frontmatter --- block at top of document
   if (frontmatterEndLine > 0) {
     const firstLine = doc.line(1)
-    decorations.push(muted.range(firstLine.from, firstLine.to))
+    pushMarker(entries, firstLine.from, firstLine.to, 'frontmatter')
     for (let i = 2; i <= frontmatterEndLine; i++) {
       const line = doc.line(i)
       if (i === frontmatterEndLine) {
-        decorations.push(muted.range(line.from, line.to))
+        pushMarker(entries, line.from, line.to, 'frontmatter')
         break
       }
       const colonIdx = line.text.indexOf(':')
       if (colonIdx !== -1 && line.from < line.to) {
-        decorations.push(muted.range(line.from, line.from + colonIdx + 1))
+        pushMarker(entries, line.from, line.from + colonIdx + 1, 'frontmatter')
       }
     }
   }
@@ -402,42 +483,68 @@ const buildDecorations = (view: EditorView): DecorationSet => {
       if (match[1].length === 0) continue
       const start = line.from + match.index
       const end = start + match[0].length
-      decorations.push(muted.range(start, start + 2))
-      decorations.push(highlightMark.range(start + 2, end - 2))
-      decorations.push(muted.range(end - 2, end))
+      const construct = codeLines.has(i) ? 'code' : 'highlight'
+      pushMarker(entries, start, start + 2, construct)
+      pushStyle(entries, highlightMark, start + 2, end - 2)
+      pushMarker(entries, end - 2, end, construct)
     }
   }
 
-  decorations.sort((a, b) => a.from - b.from)
-  return Decoration.set(decorations, true)
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// Build
+// ---------------------------------------------------------------------------
+
+const buildSet = (
+  entries: readonly DecorationEntry[],
+  state: EditorState,
+  mode: SyntaxMode,
+): DecorationSet => {
+  const active =
+    mode === 'hidden' ? computeActiveLines(state) : NO_ACTIVE_RANGES
+  const ranges: Range<Decoration>[] = materialize(entries, mode, active)
+  ranges.sort((a, b) => a.from - b.from)
+  return Decoration.set(ranges, true)
 }
 
 // ---------------------------------------------------------------------------
 // ViewPlugin
 // ---------------------------------------------------------------------------
 
-export const markdownDecorations = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet
+export const markdownDecorations = (mode: SyntaxMode) =>
+  ViewPlugin.fromClass(
+    class {
+      entries: DecorationEntry[]
+      decorations: DecorationSet
 
-    constructor(view: EditorView) {
-      this.decorations = buildDecorations(view)
-    }
-
-    update(update: ViewUpdate): void {
-      if (
-        update.docChanged ||
-        update.viewportChanged ||
-        syntaxTree(update.state) !== syntaxTree(update.startState)
-      ) {
-        this.decorations = buildDecorations(update.view)
+      constructor(view: EditorView) {
+        this.entries = scanDecorations(view)
+        this.decorations = buildSet(this.entries, view.state, mode)
       }
-    }
-  },
-  {
-    decorations: v => v.decorations,
-  },
-)
+
+      update(update: ViewUpdate): void {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          syntaxTree(update.state) !== syntaxTree(update.startState)
+        ) {
+          this.entries = scanDecorations(update.view)
+          this.decorations = buildSet(this.entries, update.state, mode)
+          return
+        }
+        // Hidden mode is the only mode whose output depends on the selection,
+        // so muted mode keeps the pre-hidden-mode rebuild predicate exactly.
+        if (mode === 'hidden' && update.selectionSet) {
+          this.decorations = buildSet(this.entries, update.state, mode)
+        }
+      }
+    },
+    {
+      decorations: v => v.decorations,
+    },
+  )
 
 // ---------------------------------------------------------------------------
 // Click handlers

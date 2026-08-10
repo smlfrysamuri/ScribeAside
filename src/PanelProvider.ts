@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { getWebviewHtml } from './getWebviewHtml'
 import { handleWebviewMessage } from './handleWebviewMessage'
-import type { NotesStorage } from './NotesStorage'
+import type { INotesStorage } from './storageTypes'
 import type {
   ExtensionMessage,
   MdpadCommand,
@@ -14,7 +14,7 @@ export class PanelProvider {
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly getStorage: () => NotesStorage,
+    private readonly getStorage: () => INotesStorage,
     private readonly onDidDispose: () => void,
     private readonly onFocusChange?: (focused: boolean) => void,
   ) {}

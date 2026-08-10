@@ -57,6 +57,7 @@ describe('settings', () => {
           lineNumbers: true,
           lineWrapping: false,
           folding: true,
+          syntaxMode: 'hidden',
         })
       })
     })
@@ -77,6 +78,7 @@ describe('settings', () => {
           lineNumbers: false,
           lineWrapping: true,
           folding: false,
+          syntaxMode: 'muted',
         })
       })
     })
