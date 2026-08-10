@@ -2,7 +2,7 @@
 "scribeaside": minor
 ---
 
-Rebrand to **ScribeAside**, a standalone fork of [mdpad](https://github.com/tbekaert/vscode-mdpad) by tbekaert, with improvements by smlfrysamuri. Both remain GPL-3.0-or-later.
+Rebrand to **ScribeAside**, a standalone fork of [mdpad](https://github.com/tbekaert/vscode-mdpad) by tbekaert, now maintained by smlfrysamuri. Both remain GPL-3.0-or-later.
 
 **Breaking:** every identifier moved from the `mdpad.*` prefix to `scribeaside.*` — commands, settings, context keys, the view and panel IDs, and the stored notes state. Nothing under the old prefix is read, so custom keybindings and settings must be updated by hand:
 

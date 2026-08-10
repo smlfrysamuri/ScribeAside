@@ -13,7 +13,7 @@ A markdown notepad that lives beside your code. Type markdown and see it styled 
 
 ## About this fork
 
-ScribeAside is a **standalone fork** of [mdpad](https://github.com/tbekaert/vscode-mdpad), originally created by [tbekaert](https://github.com/tbekaert) and licensed under the GNU GPL v3.0 or later. It is now developed independently under the name **ScribeAside**, with improvements written by [smlfrysamuri](https://github.com/smlfrysamuri) — including the fully rendered reader mode, hidden-syntax editing, and the committable team-notes scope.
+ScribeAside is a **standalone fork** of [mdpad](https://github.com/tbekaert/vscode-mdpad), originally created by [tbekaert](https://github.com/tbekaert) and licensed under the GNU GPL v3.0 or later. It is now developed independently under the name **ScribeAside**, maintained by [smlfrysamuri](https://github.com/smlfrysamuri), who directs what gets built and reviews every change. The improvements over mdpad — the fully rendered reader mode, hidden-syntax editing, and the committable team-notes scope — were implemented with AI assistance; see [AI assistance](#ai-assistance) below.
 
 It is not a drop-in upgrade: every command, setting, and storage key uses the `scribeaside.*` prefix, so ScribeAside does not read notes or configuration left behind by mdpad. Both projects remain GPL-3.0-or-later.
 
@@ -156,7 +156,7 @@ pnpm lint && pnpm test:unit && pnpm test:e2e && pnpm test:integration
 
 ## AI assistance
 
-Parts of this fork — including feature implementation, test coverage, the rebrand from mdpad to ScribeAside, and this documentation — were written with the assistance of Anthropic's Claude (via Claude Code). All AI-generated changes were reviewed, tested, and accepted by the maintainer before landing.
+The code in this fork — feature implementation, test coverage, the rebrand from mdpad to ScribeAside, and this documentation — was written by Anthropic's Claude (via Claude Code), working from the maintainer's direction on what to build and how it should behave. Every change was reviewed, tested, and accepted by the maintainer before landing.
 
 ## License
 

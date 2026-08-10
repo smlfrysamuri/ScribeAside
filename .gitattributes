@@ -1,0 +1,10 @@
+# Normalize all text files to LF in the repository and in the working tree.
+# Biome enforces LF, so a CRLF checkout (core.autocrlf=true on Windows) would
+# otherwise fail `pnpm lint` and produce content-empty diffs.
+* text=auto eol=lf
+
+# Binary assets — never touch line endings, never diff as text.
+*.png binary
+*.gif binary
+*.ico binary
+*.vsix binary
