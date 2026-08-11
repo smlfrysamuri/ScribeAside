@@ -118,6 +118,12 @@
         "icon": "$(organization)"
       },
       {
+        "command": "scribeaside.refreshTeamNotes",
+        "title": "Refresh Team Notes",
+        "category": "ScribeAside",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "scribeaside.copyPageTo",
         "title": "Copy Page To...",
         "category": "ScribeAside",
@@ -241,6 +247,11 @@
           "command": "scribeaside.switchToWorkspace",
           "group": "navigation@5",
           "when": "view == scribeaside.notesView && scribeaside.scope == team"
+        },
+        {
+          "command": "scribeaside.refreshTeamNotes",
+          "group": "1_scribeaside@0",
+          "when": "view == scribeaside.notesView"
         },
         {
           "command": "scribeaside.searchPages",
@@ -421,6 +432,19 @@
           "default": ".scribeaside",
           "description": "Folder for team notes, relative to the first workspace folder. One markdown file per page, so the notes can be committed to git."
         },
+        "scribeaside.teamNotesView": {
+          "type": "string",
+          "enum": [
+            "tree",
+            "flat"
+          ],
+          "enumDescriptions": [
+            "Show subfolders in Select Page; open one to see the notes inside it.",
+            "List every note, including those in subfolders, in a single list."
+          ],
+          "default": "tree",
+          "description": "How team notes stored in subfolders appear in ScribeAside: Select Page."
+        },
         "scribeaside.syncGlobalNotes": {
           "type": "boolean",
           "default": false,
@@ -460,7 +484,6 @@
     "@types/vscode": "^1.116.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.9.0",
     "css-loader": "^7.0.0",
     "http-server": "^14.1.1",
     "jsdom": "^29.0.2",

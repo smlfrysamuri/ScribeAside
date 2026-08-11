@@ -604,6 +604,267 @@ describe('FileNotesStorage', () => {
     })
   })
 
+  describe('subfolders', () => {
+    const nested = async () => {
+      fsMkdir(FOLDER)
+      fsMkdir(at('design'))
+      fsMkdir(at('design/api'))
+      fsWriteFile(at('root.md'), 'top level')
+      fsWriteFile(at('design/spec.md'), 'the spec')
+      fsWriteFile(at('design/api/v1.md'), 'version one')
+      fsWriteFile(at('design/diagram.png'), 'not markdown')
+      const storage = create()
+      await storage.initialize()
+      return storage
+    }
+
+    it('walks nested folders and ids pages by relative path', async () => {
+      const storage = await nested()
+      assert.deepStrictEqual(
+        storage.getState().pages.map(p => p.id),
+        ['design/api/v1.md', 'design/spec.md', 'root.md'],
+      )
+      assert.strictEqual(storage.getState().pages[0].content, 'version one')
+    })
+
+    it('writes a nested page back to its own folder', async () => {
+      const storage = await nested()
+      storage.updateContent('design/api/v1.md', 'edited')
+      await storage.flush()
+      assert.strictEqual(fsRead(at('design/api/v1.md')), 'edited')
+      assert.strictEqual(fsRead(at('design/spec.md')), 'the spec')
+    })
+
+    it('deletes a nested page without touching its siblings', async () => {
+      const storage = await nested()
+      storage.deletePage('design/spec.md')
+      await storage.flush()
+
+      assert.strictEqual(fsRead(at('design/spec.md')), undefined)
+      assert.deepStrictEqual(
+        storage.getState().pages.map(p => p.id),
+        ['design/api/v1.md', 'root.md'],
+      )
+    })
+
+    it('creates a new page beside the page you are on', async () => {
+      const storage = await nested()
+      storage.switchPage('design/spec.md')
+      assert.strictEqual(
+        storage.newPage().activeId,
+        'design/note-20260102-030405.md',
+      )
+    })
+
+    it('creates a new page at the top level from a top-level page', async () => {
+      const storage = await nested()
+      storage.switchPage('root.md')
+      assert.strictEqual(storage.newPage().activeId, 'note-20260102-030405.md')
+    })
+
+    // Names collide per folder, not globally: two folders may each hold a note
+    // created in the same second without one growing a `-2` suffix.
+    it('does not suffix across folders', async () => {
+      const storage = await nested()
+      fsWriteFile(at('note-20260102-030405.md'), 'taken at the top level')
+      fireWatcher('create', at('note-20260102-030405.md'))
+      await tick()
+
+      storage.switchPage('design/spec.md')
+      assert.strictEqual(
+        storage.newPage().activeId,
+        'design/note-20260102-030405.md',
+      )
+    })
+
+    it('keeps the sorted insert consistent with a fresh load', async () => {
+      const storage = await nested()
+      storage.switchPage('design/spec.md')
+      const created = storage.newPage().activeId
+      storage.updateContent(created, 'new note')
+      await storage.flush()
+
+      const inMemory = storage.getState().pages.map(p => p.id)
+      storage.dispose()
+
+      const reloaded = create()
+      await reloaded.initialize()
+      assert.deepStrictEqual(
+        reloaded.getState().pages.map(p => p.id),
+        inMemory,
+      )
+    })
+
+    it('picks up a teammate note created inside a subfolder', async () => {
+      const storage = await nested()
+      fsWriteFile(at('design/api/v2.md'), 'version two')
+      fireWatcher('create', at('design/api/v2.md'))
+      await tick()
+
+      assert.deepStrictEqual(
+        storage.getState().pages.map(p => p.id),
+        ['design/api/v1.md', 'design/api/v2.md', 'design/spec.md', 'root.md'],
+      )
+    })
+
+    // The watcher reports a removed directory as the directory's own uri —
+    // no markdown event ever arrives for the notes that were inside it.
+    it('drops every page under a subfolder that is deleted', async () => {
+      const storage = await nested()
+      storage.switchPage('design/api/v1.md')
+      changes = []
+
+      fireWatcher('delete', at('design'))
+      await tick()
+
+      assert.deepStrictEqual(
+        storage.getState().pages.map(p => p.id),
+        ['root.md'],
+      )
+      assert.strictEqual(storage.getState().activeId, 'root.md')
+      assert.deepStrictEqual(changes, [{ activeContentChanged: true }])
+    })
+
+    it('ignores a directory delete that holds no pages', async () => {
+      const storage = await nested()
+      changes = []
+      fireWatcher('delete', at('unrelated'))
+      await tick()
+
+      assert.strictEqual(storage.getState().pages.length, 3)
+      assert.deepStrictEqual(changes, [])
+    })
+
+    it('ignores an event for a path outside the notes folder', async () => {
+      const storage = await nested()
+      changes = []
+      fsWriteFile('file:///workspace/elsewhere.md', 'not ours')
+      fireWatcher('change', 'file:///workspace/elsewhere.md')
+      fireWatcher('delete', 'file:///workspace/elsewhere.md')
+      await tick()
+
+      assert.strictEqual(storage.getState().pages.length, 3)
+      assert.deepStrictEqual(changes, [])
+    })
+
+    it('stops walking past the depth cap', async () => {
+      fsMkdir(FOLDER)
+      let dir = ''
+      for (let i = 0; i < 12; i++) {
+        dir = dir ? `${dir}/d${i}` : `d${i}`
+        fsMkdir(at(dir))
+        fsWriteFile(at(`${dir}/note.md`), `level ${i}`)
+      }
+
+      const storage = create()
+      await storage.initialize()
+      const depths = storage
+        .getState()
+        .pages.map(p => p.id.split('/').length - 1)
+      assert.ok(depths.length > 0)
+      assert.ok(
+        Math.max(...depths) <= 8,
+        `walked to depth ${Math.max(...depths)}`,
+      )
+    })
+  })
+
+  describe('refresh', () => {
+    it('picks up files the watcher never reported', async () => {
+      fsMkdir(FOLDER)
+      fsWriteFile(at('a.md'), 'ay')
+      const storage = create()
+      await storage.initialize()
+
+      // No watcher event: exactly what a git checkout outside the workspace
+      // watcher, or a folder that was not there at activation, looks like.
+      fsMkdir(at('pulled'))
+      fsWriteFile(at('b.md'), 'bee')
+      fsWriteFile(at('pulled/c.md'), 'see')
+      await storage.refresh()
+
+      assert.deepStrictEqual(
+        storage.getState().pages.map(p => p.id),
+        ['a.md', 'b.md', 'pulled/c.md'],
+      )
+    })
+
+    it('flushes pending edits before re-reading', async () => {
+      fsMkdir(FOLDER)
+      fsWriteFile(at('a.md'), 'ay')
+      const storage = create({ debounceMs: 10_000 })
+      await storage.initialize()
+
+      storage.updateContent('a.md', 'typed but not yet written')
+      await storage.refresh()
+
+      assert.strictEqual(fsRead(at('a.md')), 'typed but not yet written')
+      assert.strictEqual(
+        storage.getState().pages[0].content,
+        'typed but not yet written',
+      )
+    })
+
+    it('brings a folder created after activation online', async () => {
+      const storage = create()
+      await storage.initialize()
+      assert.strictEqual(storage.isAvailable, false)
+
+      fsMkdir(FOLDER)
+      fsWriteFile(at('a.md'), 'ay')
+      await storage.refresh()
+
+      assert.strictEqual(storage.isAvailable, true)
+      assert.deepStrictEqual(
+        storage.getState().pages.map(p => p.id),
+        ['a.md'],
+      )
+    })
+
+    it('starts watching a folder that only existed from the refresh on', async () => {
+      const storage = create()
+      await storage.initialize()
+
+      fsMkdir(FOLDER)
+      fsWriteFile(at('a.md'), 'ay')
+      await storage.refresh()
+
+      fsWriteFile(at('a.md'), 'edited elsewhere')
+      fireWatcher('change', at('a.md'))
+      await tick()
+
+      assert.strictEqual(
+        storage.getState().pages[0].content,
+        'edited elsewhere',
+      )
+    })
+
+    it('keeps the active page across a refresh', async () => {
+      fsMkdir(FOLDER)
+      fsWriteFile(at('a.md'), 'ay')
+      fsWriteFile(at('b.md'), 'bee')
+      const storage = create()
+      await storage.initialize()
+      storage.switchPage('b.md')
+
+      await storage.refresh()
+      assert.strictEqual(storage.getState().activeId, 'b.md')
+    })
+
+    it('reports a folder that went away instead of throwing', async () => {
+      fsMkdir(FOLDER)
+      fsWriteFile(at('a.md'), 'ay')
+      const storage = create()
+      await storage.initialize()
+
+      fsDelete(at('a.md'))
+      fsDelete(FOLDER)
+      await storage.refresh()
+
+      assert.strictEqual(storage.isAvailable, false)
+    })
+  })
+
   describe('unavailable folder', () => {
     it('accepts edits without writing or throwing', async () => {
       const storage = create()

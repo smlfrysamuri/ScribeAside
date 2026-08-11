@@ -23,6 +23,7 @@ suite('Extension', () => {
     'scribeaside.switchToGlobal',
     'scribeaside.switchToWorkspace',
     'scribeaside.switchToTeam',
+    'scribeaside.refreshTeamNotes',
     'scribeaside.copyPageTo',
     'scribeaside.toggleBold',
     'scribeaside.toggleItalic',

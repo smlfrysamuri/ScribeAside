@@ -1,4 +1,11 @@
 import * as vscode from 'vscode'
+import {
+  baseOf,
+  comparePageIds,
+  dirOf,
+  isSafeRelativeId,
+  joinId,
+} from './notePaths'
 import { timestampFileName, uniqueFileName } from './slug'
 import type { INotesStorage } from './storageTypes'
 import type { NotesState, Page } from './webview/types'
@@ -6,6 +13,9 @@ import type { NotesState, Page } from './webview/types'
 const MARKDOWN_FILE = /\.md$/i
 const DEFAULT_DEBOUNCE_MS = 300
 const FLUSH_ROUNDS = 5
+// Notes are meant to be browsed, so the tree is shallow in practice. The cap
+// exists to bound the walk on a folder someone pointed at a source tree.
+const MAX_DEPTH = 8
 
 export interface ExternalChange {
   activeContentChanged: boolean
@@ -23,9 +33,6 @@ export interface FileNotesStorageOptions {
 
 const decoder = new TextDecoder()
 const encoder = new TextEncoder()
-
-const fileNameOf = (uri: vscode.Uri): string =>
-  uri.path.slice(uri.path.lastIndexOf('/') + 1)
 
 const errorText = (err: unknown): string =>
   err instanceof Error ? err.message : String(err)
@@ -72,6 +79,15 @@ export class FileNotesStorage implements INotesStorage {
     }
   }
 
+  // Re-reads the folder from scratch. Pending edits are flushed first, because
+  // load() replaces the cache wholesale and would otherwise drop whatever the
+  // user typed in the last debounce window. Safe to call when the folder was
+  // missing at activation: load() starts the watcher once it finds one.
+  async refresh(): Promise<void> {
+    await this.flush()
+    await this.initialize()
+  }
+
   private async load(): Promise<void> {
     let isDirectory = false
     try {
@@ -85,18 +101,9 @@ export class FileNotesStorage implements INotesStorage {
       return
     }
 
-    let names: string[] = []
+    let ids: string[]
     try {
-      const entries = await vscode.workspace.fs.readDirectory(
-        this.options.folderUri,
-      )
-      names = entries
-        .filter(
-          ([name, type]) =>
-            (type & vscode.FileType.File) !== 0 && MARKDOWN_FILE.test(name),
-        )
-        .map(([name]) => name)
-        .sort((a, b) => a.localeCompare(b))
+      ids = await this.collectIds('', 0, true)
     } catch (err) {
       this.available = false
       vscode.window.showErrorMessage(
@@ -104,15 +111,16 @@ export class FileNotesStorage implements INotesStorage {
       )
       return
     }
+    ids.sort(comparePageIds)
 
     const pages: Page[] = []
     this.onDisk.clear()
     this.lastWritten.clear()
-    for (const name of names) {
+    for (const id of ids) {
       try {
-        const bytes = await vscode.workspace.fs.readFile(this.uriFor(name))
-        pages.push({ id: name, content: decoder.decode(bytes) })
-        this.onDisk.add(name)
+        const bytes = await vscode.workspace.fs.readFile(this.uriFor(id))
+        pages.push({ id, content: decoder.decode(bytes) })
+        this.onDisk.add(id)
       } catch {
         // One unreadable note must not take the whole scope offline.
       }
@@ -131,11 +139,52 @@ export class FileNotesStorage implements INotesStorage {
     this.startWatching()
   }
 
+  // Depth-first walk of the notes folder. Only the root read is allowed to
+  // fail loudly (`rethrow`) — a single unreadable subfolder should cost its
+  // own notes, not the whole scope, exactly like an unreadable file.
+  private async collectIds(
+    dir: string,
+    depth: number,
+    rethrow: boolean,
+  ): Promise<string[]> {
+    if (depth > MAX_DEPTH) return []
+    let entries: [string, vscode.FileType][]
+    try {
+      entries = await vscode.workspace.fs.readDirectory(this.uriForDir(dir))
+    } catch (err) {
+      if (rethrow) throw err
+      return []
+    }
+
+    const ids: string[] = []
+    for (const [name, type] of entries) {
+      const id = joinId(dir, name)
+      if (!isSafeRelativeId(id)) continue
+      // Symlinked directories are skipped rather than followed: a link back up
+      // the tree would otherwise walk until MAX_DEPTH and list the same notes
+      // under several ids.
+      if ((type & vscode.FileType.SymbolicLink) !== 0) continue
+      if ((type & vscode.FileType.Directory) !== 0) {
+        ids.push(...(await this.collectIds(id, depth + 1, false)))
+      } else if (
+        (type & vscode.FileType.File) !== 0 &&
+        MARKDOWN_FILE.test(name)
+      ) {
+        ids.push(id)
+      }
+    }
+    return ids
+  }
+
   private startWatching(): void {
-    // initialize() runs a second time after switchToTeam creates the folder.
+    // initialize() runs a second time after switchToTeam creates the folder,
+    // and again on every refresh().
     if (this.disposables.length > 0) return
+    // `**/*` rather than `**/*.md`: a deleted *subfolder* is reported as the
+    // folder's own uri, which no markdown glob would ever match, and the notes
+    // inside it would then linger in the list forever.
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(this.options.folderUri, '*.md'),
+      new vscode.RelativePattern(this.options.folderUri, '**/*'),
     )
     this.disposables.push(
       watcher,
@@ -179,10 +228,9 @@ export class FileNotesStorage implements INotesStorage {
 
   newPage(): NotesState {
     if (!this.available) return this.cache
-    const id = uniqueFileName(
-      timestampFileName(this.now()),
-      new Set(this.cache.pages.map(page => page.id)),
-    )
+    // Created beside the page you are on, so a new note taken while reading
+    // `design/spec.md` lands in `design/` instead of jumping to the root.
+    const id = this.freeId(dirOf(this.cache.activeId))
     this.insertPage({ id, content: '' })
     this.setActive(id)
     return this.cache
@@ -249,12 +297,20 @@ export class FileNotesStorage implements INotesStorage {
   }
 
   private seedDraft(): void {
-    const id = uniqueFileName(
-      timestampFileName(this.now()),
-      new Set(this.cache.pages.map(page => page.id)),
-    )
+    const id = this.freeId('')
     this.cache.pages.push({ id, content: '' })
     this.cache.activeId = id
+  }
+
+  // Uniqueness is per folder, not global: two folders may each hold a note
+  // created in the same second without one of them growing a `-2` suffix.
+  private freeId(dir: string): string {
+    const taken = new Set(
+      this.cache.pages
+        .filter(page => dirOf(page.id) === dir)
+        .map(page => baseOf(page.id)),
+    )
+    return joinId(dir, uniqueFileName(timestampFileName(this.now()), taken))
   }
 
   private setActive(id: string): void {
@@ -267,7 +323,7 @@ export class FileNotesStorage implements INotesStorage {
   private insertPage(page: Page): void {
     let idx = this.cache.pages.length
     for (let i = 0; i < this.cache.pages.length; i++) {
-      if (this.cache.pages[i].id.localeCompare(page.id) > 0) {
+      if (comparePageIds(this.cache.pages[i].id, page.id) > 0) {
         idx = i
         break
       }
@@ -276,7 +332,29 @@ export class FileNotesStorage implements INotesStorage {
   }
 
   private uriFor(id: string): vscode.Uri {
-    return vscode.Uri.joinPath(this.options.folderUri, id)
+    return vscode.Uri.joinPath(this.options.folderUri, ...id.split('/'))
+  }
+
+  private uriForDir(dir: string): vscode.Uri {
+    return dir ? this.uriFor(dir) : this.options.folderUri
+  }
+
+  // The inverse of uriFor: a watcher event's uri back to a page id. Returns
+  // undefined for anything outside the notes folder, so a stray event can
+  // never be read as a relative path and joined back on.
+  //
+  // Only the *prefix* is matched case-insensitively, and only to survive a
+  // drive letter arriving as `c:` where the folder uri holds `C:`. The id is
+  // sliced out of the original path, so a note's own name keeps its case on
+  // filesystems that care. A watcher only ever reports paths under its own
+  // base, so this cannot let in a sibling folder that differs by case.
+  private relativeId(uri: vscode.Uri): string | undefined {
+    const base = this.options.folderUri.path.replace(/\/+$/, '')
+    if (!uri.path.toLowerCase().startsWith(`${base.toLowerCase()}/`)) {
+      return undefined
+    }
+    const id = uri.path.slice(base.length + 1)
+    return isSafeRelativeId(id) ? id : undefined
   }
 
   private markUnavailable(): void {
@@ -351,6 +429,10 @@ export class FileNotesStorage implements INotesStorage {
   // workspace.fs.writeFile creates missing parent directories, so without this
   // check deleting the folder in the Explorer would silently bring it back on
   // the next keystroke — the opposite of the opt-in the folder represents.
+  //
+  // Only the notes folder itself is probed, not the subfolder a nested page
+  // lives in: deleting a subfolder fires the watcher, which drops every page
+  // under it, so no write is left pointing into a folder the user removed.
   private async folderStillExists(): Promise<boolean> {
     try {
       const stat = await vscode.workspace.fs.stat(this.options.folderUri)
@@ -411,8 +493,8 @@ export class FileNotesStorage implements INotesStorage {
   // -------------------------------------------------------------------------
 
   private async handleExternalWrite(uri: vscode.Uri): Promise<void> {
-    const id = fileNameOf(uri)
-    if (!MARKDOWN_FILE.test(id)) return
+    const id = this.relativeId(uri)
+    if (id === undefined || !MARKDOWN_FILE.test(id)) return
     // We are mid-edit on this page; last writer wins and that is us.
     if (this.pending.has(id) || this.writing.has(id)) return
 
@@ -445,30 +527,50 @@ export class FileNotesStorage implements INotesStorage {
   }
 
   private handleExternalDelete(uri: vscode.Uri): void {
-    const id = fileNameOf(uri)
-    const idx = this.cache.pages.findIndex(page => page.id === id)
-    // Already gone from the cache means we deleted it ourselves.
-    if (idx === -1) return
+    const id = this.relativeId(uri)
+    if (id === undefined) return
+    // A markdown path is one page; anything else is a folder that went away,
+    // and the watcher reports only the folder, never the notes under it.
+    const ids = MARKDOWN_FILE.test(id)
+      ? [id]
+      : this.cache.pages
+          .filter(page => page.id.startsWith(`${id}/`))
+          .map(page => page.id)
+    this.forgetPages(ids)
+  }
 
-    // Captured before the splice, for the same reason as in deletePage: when
+  // Drops pages that are already gone from disk. Never deletes anything
+  // itself — the files are the reason this runs.
+  private forgetPages(ids: readonly string[]): void {
+    // Captured before the splices, for the same reason as in deletePage: when
     // the last page goes, seedDraft() reassigns activeId, and reading it
     // afterwards would report "the active page did not change" while the
     // webview is still showing a note that no longer exists.
-    const wasActive = this.cache.activeId === id
-    this.cache.pages.splice(idx, 1)
-    this.onDisk.delete(id)
-    this.lastWritten.delete(id)
-    const timer = this.pending.get(id)
-    if (timer) {
-      clearTimeout(timer)
-      this.pending.delete(id)
+    let firstIdx = -1
+    let wasActive = false
+
+    for (const id of ids) {
+      const idx = this.cache.pages.findIndex(page => page.id === id)
+      // Already gone from the cache means we deleted it ourselves.
+      if (idx === -1) continue
+      if (firstIdx === -1 || idx < firstIdx) firstIdx = idx
+      if (this.cache.activeId === id) wasActive = true
+      this.cache.pages.splice(idx, 1)
+      this.onDisk.delete(id)
+      this.lastWritten.delete(id)
+      const timer = this.pending.get(id)
+      if (timer) {
+        clearTimeout(timer)
+        this.pending.delete(id)
+      }
     }
+    if (firstIdx === -1) return
 
     if (this.cache.pages.length === 0) this.seedDraft()
 
     if (wasActive) {
       this.setActive(
-        this.cache.pages[Math.min(idx, this.cache.pages.length - 1)].id,
+        this.cache.pages[Math.min(firstIdx, this.cache.pages.length - 1)].id,
       )
     }
     this.options.onExternalChange({ activeContentChanged: wasActive })

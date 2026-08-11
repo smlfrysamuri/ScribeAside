@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { deriveTitle } from './deriveTitle'
 import { type ExternalChange, FileNotesStorage } from './FileNotesStorage'
 import { NotesStorage } from './NotesStorage'
+import { childFolders, dirOf, nearestExistingDir } from './notePaths'
 import { PanelProvider } from './PanelProvider'
 import { SidebarProvider } from './SidebarProvider'
 import { searchLines } from './searchLines'
@@ -358,12 +359,54 @@ export const activate = async (
     }),
   )
 
-  const pageItems = (scope: Scope, isActiveScope: boolean) => {
+  type PageItem = vscode.QuickPickItem & {
+    itemKind: 'page'
+    pageId: string
+    scope: Scope
+  }
+  type FolderItem = vscode.QuickPickItem & { itemKind: 'folder'; dir: string }
+  type SeparatorItem = vscode.QuickPickItem & { itemKind: 'separator' }
+  type PickItem = PageItem | FolderItem | SeparatorItem
+
+  // Folder browsing belongs to the folder-backed scope only — the memento
+  // scopes have no paths to walk into — and it is what `flat` turns off.
+  const browsingTree = (): boolean =>
+    currentScope === 'team' &&
+    vscode.workspace
+      .getConfiguration('scribeaside')
+      .get<'tree' | 'flat'>('teamNotesView', 'tree') === 'tree'
+
+  // A nested page shows the folder it lives in instead of an ordinal: while
+  // browsing a subtree the ordinal counts the folder, not the whole scope, so
+  // it would read as a different page's number.
+  const describePage = (
+    entry: ScopeEntry,
+    id: string,
+    index: number,
+  ): string => {
+    const dir = dirOf(id)
+    return dir
+      ? `${dir} · ${entry.label}`
+      : `Page ${index + 1} · ${entry.label}`
+  }
+
+  // `dir === undefined` lists every page in the scope; a string lists only the
+  // pages sitting directly in that folder.
+  const pageItems = (
+    scope: Scope,
+    isActiveScope: boolean,
+    dir?: string,
+  ): PageItem[] => {
     const entry = SCOPES[scope]
     const state = entry.storage().getState()
-    return state.pages.map((page, i) => ({
+    const pages =
+      dir === undefined
+        ? state.pages
+        : state.pages.filter(page => dirOf(page.id) === dir)
+    return pages.map((page, i) => ({
+      itemKind: 'page',
       label: `${isActiveScope && page.id === state.activeId ? '$(check) ' : ''}${entry.icon} ${deriveTitle(page.content)}`,
-      description: `Page ${i + 1} · ${entry.label}`,
+      description: describePage(entry, page.id, i),
       pageId: page.id,
       scope,
     }))
@@ -371,31 +414,82 @@ export const activate = async (
 
   context.subscriptions.push(
     vscode.commands.registerCommand('scribeaside.selectPage', async () => {
-      const separator = {
+      const separator: SeparatorItem = {
+        itemKind: 'separator',
         label: '',
         kind: vscode.QuickPickItemKind.Separator,
       }
 
-      const allItems: (
-        | ReturnType<typeof pageItems>[number]
-        | typeof separator
-      )[] = [...pageItems(currentScope, true)]
+      const build = (dir: string, tree: boolean, ids: string[]): PickItem[] => {
+        const items: PickItem[] = []
 
-      for (const scope of SCOPE_ORDER) {
-        if (scope === currentScope || !SCOPES[scope].available()) continue
-        const items = pageItems(scope, false)
-        if (items.length === 0) continue
-        allItems.push(separator, ...items)
+        if (tree) {
+          if (dir) {
+            items.push({
+              itemKind: 'folder',
+              label: '$(arrow-left) ..',
+              description: dirOf(dir) || 'Top level',
+              dir: dirOf(dir),
+            })
+          }
+          for (const folder of childFolders(ids, dir)) {
+            items.push({
+              itemKind: 'folder',
+              label: `$(folder) ${folder.name}`,
+              description: `${folder.noteCount} note${folder.noteCount === 1 ? '' : 's'}`,
+              dir: folder.path,
+            })
+          }
+        }
+
+        items.push(...pageItems(currentScope, true, tree ? dir : undefined))
+
+        // Other scopes are offered at the top level only: they have no folder
+        // to be inside of, and repeating them at every depth would bury the
+        // folder you just opened under two unrelated note lists.
+        if (dir === '') {
+          for (const scope of SCOPE_ORDER) {
+            if (scope === currentScope || !SCOPES[scope].available()) continue
+            const others = pageItems(scope, false)
+            if (others.length === 0) continue
+            items.push(separator, ...others)
+          }
+        }
+        return items
       }
 
-      const picked = await vscode.window.showQuickPick(allItems, {
-        placeHolder: `Select a page (${scopeLabel()})`,
-      })
+      let dir = ''
+      for (;;) {
+        const tree = browsingTree()
+        const ids = SCOPES[currentScope]
+          .storage()
+          .getState()
+          .pages.map(page => page.id)
+        // The folder can empty out under us — a teammate's delete lands while
+        // the picker is open — so fall back to the nearest one that still has
+        // notes rather than showing a directory that is no longer there.
+        dir = tree ? nearestExistingDir(ids, dir) : ''
 
-      if (picked && 'pageId' in picked) {
-        if (picked.scope !== currentScope) applyScope(picked.scope)
-        getActiveStorage().switchPage(picked.pageId)
-        switchAndUpdate()
+        const picked = await vscode.window.showQuickPick(
+          build(dir, tree, ids),
+          {
+            placeHolder: dir
+              ? `Select a page (${scopeLabel()} · ${dir})`
+              : `Select a page (${scopeLabel()})`,
+          },
+        )
+
+        if (!picked) return
+        if (picked.itemKind === 'folder') {
+          dir = picked.dir
+          continue
+        }
+        if (picked.itemKind === 'page') {
+          if (picked.scope !== currentScope) applyScope(picked.scope)
+          getActiveStorage().switchPage(picked.pageId)
+          switchAndUpdate()
+        }
+        return
       }
     }),
   )
@@ -426,6 +520,12 @@ export const activate = async (
         // Probe before prompting, or the modal offers to create a folder that
         // is already sitting there.
         await teamStorage?.initialize()
+        publishTeamAvailability()
+      } else if (!teamStorage.isAvailable) {
+        // The last probe said "missing", but that answer is as old as the
+        // window: a pull or a `mkdir` since then would otherwise still be met
+        // with an offer to create a folder that now exists.
+        await teamStorage.refresh()
         publishTeamAvailability()
       }
       if (!teamStorage) {
@@ -462,6 +562,36 @@ export const activate = async (
       if (!teamStorage.isAvailable) return
       setScope('team')
     }),
+  )
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'scribeaside.refreshTeamNotes',
+      async () => {
+        if (!vscode.workspace.workspaceFolders?.[0]) {
+          vscode.window.showErrorMessage(
+            'ScribeAside: team notes need an open workspace folder.',
+          )
+          return
+        }
+        // A full rebuild rather than teamStorage.refresh(): the folder may not
+        // have existed when the window opened, in which case there is no
+        // storage object yet, and a watcher that missed events is a plausible
+        // reason to be reaching for this command in the first place.
+        await reloadTeamStorage()
+        if (teamStorage?.isAvailable) {
+          const count = teamStorage.getState().pages.length
+          vscode.window.setStatusBarMessage(
+            `ScribeAside: team notes reloaded — ${count} page${count === 1 ? '' : 's'}.`,
+            3000,
+          )
+        } else {
+          vscode.window.showWarningMessage(
+            `ScribeAside: "${configuredTeamFolder()}" is not there — run ScribeAside: Switch to Team Notes to create it.`,
+          )
+        }
+      },
+    ),
   )
 
   context.subscriptions.push(
@@ -592,7 +722,7 @@ export const activate = async (
               for (const match of searchLines(page.content, query)) {
                 results.push({
                   label: `${entry.icon} ${deriveTitle(page.content)}`,
-                  description: `${entry.label} · line ${match.lineNum}`,
+                  description: `${dirOf(page.id) ? `${dirOf(page.id)} · ` : ''}${entry.label} · line ${match.lineNum}`,
                   detail: match.line,
                   pageId: page.id,
                   scope,
