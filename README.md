@@ -19,7 +19,7 @@ It is not a drop-in upgrade: every command, setting, and storage key uses the `s
 
 ## Quick start
 
-1. ~~Install ScribeAside from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=smlfrysamuri.scribeaside) or [Open VSX](https://open-vsx.org/extension/smlfrysamuri/scribeaside)~~ ***(Not yet)***
+1. ~~Install ScribeAside from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=smlfrysamuri.scribeaside) or [Open VSX](https://open-vsx.org/extension/smlfrysamuri/scribeaside)~~ ***(Not yet - download .vsix from releases or build from source using `vsce`)***
 2. Click the **ScribeAside icon** in the activity bar
 3. Start typing markdown
 
