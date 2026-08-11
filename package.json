@@ -2,7 +2,7 @@
   "name": "scribeaside",
   "displayName": "ScribeAside",
   "description": "A markdown notepad that lives in your VS Code sidebar — muted, hidden, or fully rendered syntax, with workspace, global, and committable team notes.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "smlfrysamuri",
   "packageManager": "pnpm@10.33.0",
   "license": "GPL-3.0-or-later",

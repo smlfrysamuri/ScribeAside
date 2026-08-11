@@ -2,6 +2,14 @@
 
 ScribeAside is a standalone fork of [mdpad](https://github.com/tbekaert/vscode-mdpad) by tbekaert. Entries for 0.4.1 and earlier are inherited from mdpad and are left verbatim — they describe commands and settings under the old `mdpad.*` prefix, which ScribeAside renamed to `scribeaside.*`.
 
+## 0.5.1
+
+### Patch Changes
+
+- Add **ScribeAside: Refresh Team Notes**, which re-reads the team notes folder from disk. A folder created after the window opened — a fresh clone, a `mkdir`, a branch that adds one — is now picked up without reloading VS Code. Pending edits are flushed before the re-read, and **Switch to Team Notes** re-probes a folder it believes is missing instead of offering to create one that already exists.
+
+- Read team notes from subfolders. Any folder tree inside the notes folder is walked, and a page's identity is its path relative to that folder, so files stay where you put them. **Select Page** shows subfolders alongside loose notes and opens them on selection, with `..` to go back up; set the new `scribeaside.teamNotesView` to `"flat"` to list every note at once instead. New pages are created beside the page you are on, and deleting a subfolder outside ScribeAside drops the notes that were inside it.
+
 ## 0.4.1
 
 ### Patch Changes
