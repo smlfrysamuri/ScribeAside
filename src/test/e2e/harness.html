@@ -34,12 +34,23 @@
   <div id="editor"></div>
   <script>
     window.__postedMessages = []
+                            // Backed by sessionStorage so that reloading the
+                            // page reproduces what VS Code does to a sidebar
+                            // webview on collapse: the document is destroyed,
+                            // and setState/getState is the only thing that
+                            // survives it.
+                            const STATE_KEY = 'scribeaside.harnessState'
                             window.acquireVsCodeApi = () => ({
                               postMessage: (msg) => {
                                 window.__postedMessages.push(msg)
                               },
-                              getState: () => undefined,
-                              setState: () => {},
+                              getState: () => {
+                                const raw = sessionStorage.getItem(STATE_KEY)
+                                return raw ? JSON.parse(raw) : undefined
+                              },
+                              setState: (state) => {
+                                sessionStorage.setItem(STATE_KEY, JSON.stringify(state))
+                              },
                             })
   </script>
   <script src="/dist/webview.js"></script>

@@ -88,6 +88,7 @@ export class PanelProvider {
       this.panel.webview.postMessage({
         type: 'init',
         content: page?.content ?? '',
+        pageId: page?.id ?? '',
       })
     }
   }

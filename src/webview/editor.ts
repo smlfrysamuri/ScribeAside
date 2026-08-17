@@ -623,6 +623,10 @@ export interface EditorHandle {
   view: EditorView
   setContent: (content: string) => void
   applySettings: (settings: ScribeAsideSettings) => void
+  // A scroll position expressed as a document offset rather than a pixel
+  // offset — see src/webview/scrollMemory.ts for why.
+  getScrollAnchor: () => number
+  scrollToAnchor: (pos: number) => void
 }
 
 export const createEditor = (
@@ -703,5 +707,24 @@ export const createEditor = (
     })
   }
 
-  return { view, setContent, applySettings }
+  // The document offset of the first line in view. `lineBlockAtHeight` measures
+  // in the document's own coordinate space, and `documentTop` is where that
+  // space currently starts on screen, so the difference converts the top edge
+  // of the scroller into a height the editor can answer for.
+  const getScrollAnchor = (): number => {
+    const top = view.scrollDOM.getBoundingClientRect().top
+    return view.lineBlockAtHeight(top - view.documentTop).from
+  }
+
+  const scrollToAnchor = (pos: number): void => {
+    const clamped = Math.max(0, Math.min(pos, view.state.doc.length))
+    view.dispatch({
+      // yMargin defaults to 5px of breathing room, which would land the
+      // viewport top inside the *previous* line and make a restore drift up a
+      // line every time the view was rebuilt.
+      effects: EditorView.scrollIntoView(clamped, { y: 'start', yMargin: 0 }),
+    })
+  }
+
+  return { view, setContent, applySettings, getScrollAnchor, scrollToAnchor }
 }

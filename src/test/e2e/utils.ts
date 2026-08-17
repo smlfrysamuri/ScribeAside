@@ -36,10 +36,13 @@ export const sendMessage = async (
   }, message)
 }
 
+export const DEFAULT_PAGE_ID = 'page-1'
+
 export const initEditor = async (
   page: Page,
   content: string,
   settings: Partial<ScribeAsideSettings> = {},
+  pageId: string = DEFAULT_PAGE_ID,
 ): Promise<void> => {
   await openHarness(page)
   await sendMessage(page, {
@@ -47,7 +50,7 @@ export const initEditor = async (
     ...DEFAULT_SETTINGS,
     ...settings,
   })
-  await sendMessage(page, { type: 'init', content })
+  await sendMessage(page, { type: 'init', content, pageId })
   await page
     .waitForFunction(
       expected => {

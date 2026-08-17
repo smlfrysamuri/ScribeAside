@@ -6,6 +6,12 @@ import {
   wrapSelection,
 } from './editor'
 import { renderMarkdown } from './renderer'
+import {
+  readEntries,
+  recallScroll,
+  rememberScroll,
+  type ScrollEntry,
+} from './scrollMemory'
 import type { ExtensionMessage } from './types'
 import { applyTypography } from './typography'
 
@@ -30,6 +36,14 @@ let firstUnsentChangeAt: number | undefined
 // The last content the host and the webview agreed on: set when the host sends
 // content, and again when a local edit is posted back.
 let syncedContent = ''
+
+// Which note is on screen, and where the user had scrolled to in the notes
+// they have visited. `getState()` is read once here because it is the only
+// thing that survives the view being collapsed and rebuilt.
+let currentPageId = ''
+let scrollEntries: ScrollEntry[] = readEntries(
+  (vscode.getState() as { scroll?: unknown } | undefined)?.scroll,
+)
 
 const postContent = (content: string): void => {
   syncedContent = content
@@ -70,6 +84,7 @@ const ensureReader = (): HTMLElement => {
     const href = anchor.getAttribute('href')
     if (href) handleOpenLink(href)
   })
+  readerEl.addEventListener('scroll', scheduleScrollSave, { passive: true })
   readerEl.addEventListener('dblclick', event => {
     // Double-clicking a link means "open it", not "leave reader mode".
     if ((event.target as HTMLElement).closest('a')) return
@@ -78,21 +93,76 @@ const ensureReader = (): HTMLElement => {
   return readerEl
 }
 
-const renderReader = (): void => {
+const SCROLL_SAVE_DEBOUNCE_MS = 200
+
+let scrollTimer: ReturnType<typeof setTimeout> | undefined
+
+// Only the surface the user can actually see reports a position. The hidden
+// one measures as a zero-height box, and letting it answer would overwrite a
+// good position with the top of the note.
+const persistScroll = (): void => {
+  if (!currentPageId || !editor) return
+  scrollEntries = rememberScroll(
+    scrollEntries,
+    currentPageId,
+    readerActive
+      ? { readerTop: readerEl?.scrollTop ?? 0 }
+      : { pos: editor.getScrollAnchor() },
+  )
+  vscode.setState({ scroll: scrollEntries })
+}
+
+const scheduleScrollSave = (): void => {
+  if (scrollTimer) clearTimeout(scrollTimer)
+  scrollTimer = setTimeout(persistScroll, SCROLL_SAVE_DEBOUNCE_MS)
+}
+
+// The debounce is a throttle on a stream of scroll events, not a grace period
+// we can afford to lose: a collapsing sidebar takes the whole document with it.
+// Every event that means "this webview is about to stop being looked at" ends
+// with the pending save already written.
+const flushScrollSave = (): void => {
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
+    scrollTimer = undefined
+  }
+  persistScroll()
+}
+
+const restoreScroll = (): void => {
+  const place = recallScroll(scrollEntries, currentPageId)
+  if (readerActive) {
+    ensureReader().scrollTop = place?.readerTop ?? 0
+  } else {
+    editor?.scrollToAnchor(place?.pos ?? 0)
+  }
+}
+
+// `scrollTop` undefined means "stay where you are": innerHTML wipes the offset,
+// and a re-render caused by someone else editing the file must not yank the
+// reader back to the top of a note the user is halfway down.
+const renderReader = (scrollTop?: number): void => {
   if (!editor) return
-  ensureReader().innerHTML = renderMarkdown(editor.view.state.doc.toString())
+  const el = ensureReader()
+  const top = scrollTop ?? el.scrollTop
+  el.innerHTML = renderMarkdown(editor.view.state.doc.toString())
+  el.scrollTop = top
 }
 
 const setReaderMode = (enabled: boolean): void => {
+  // Bank the surface being left before the other one takes over — its pending
+  // save is measured against a box that is about to be display:none.
+  flushScrollSave()
   readerActive = enabled
   document.body.classList.toggle('scribeaside-reader-active', enabled)
   if (enabled) {
-    renderReader()
+    renderReader(recallScroll(scrollEntries, currentPageId)?.readerTop ?? 0)
   } else {
     // The editor sat under display:none; CodeMirror must re-measure before
     // pixel-based cursor navigation is trustworthy again.
     editor?.view.requestMeasure()
     editor?.view.focus()
+    restoreScroll()
   }
 }
 
@@ -117,6 +187,12 @@ const init = (): void => {
       const message = event.data
       switch (message.type) {
         case 'init': {
+          // Same message for "the view came back" and "we moved to another
+          // note", so the outgoing note's place is banked before the id
+          // changes; on a rebuilt webview there is no outgoing note and this
+          // does nothing.
+          flushScrollSave()
+          currentPageId = message.pageId
           syncedContent = message.content
           editor?.setContent(message.content)
           if (readerActive) {
@@ -124,6 +200,9 @@ const init = (): void => {
           } else {
             editor?.view.focus()
           }
+          // After focus(), which scrolls the caret into view on its own, and
+          // after the re-render, which resets the reader to the top.
+          restoreScroll()
           break
         }
         // Deliberately no focus(): this arrives when someone else edited the
@@ -200,8 +279,21 @@ const init = (): void => {
   })
 
   window.addEventListener('blur', () => {
+    flushScrollSave()
     vscode.postMessage({ type: 'focusChange', focused: false })
   })
+
+  editor.view.scrollDOM.addEventListener('scroll', scheduleScrollSave, {
+    passive: true,
+  })
+
+  // Collapsing the sidebar destroys this document. Which of these fires (and
+  // whether any does) is not guaranteed, so all three are wired: the cost of a
+  // redundant save is one no-op write.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) flushScrollSave()
+  })
+  window.addEventListener('pagehide', flushScrollSave)
 
   vscode.postMessage({ type: 'ready' })
 }

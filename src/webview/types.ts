@@ -41,7 +41,10 @@ export interface ScribeAsideSettings {
 
 // Extension -> Webview messages
 export type ExtensionMessage =
-  | { type: 'init'; content: string }
+  // `pageId` is what lets the webview tell "the view came back" from "we moved
+  // to another note" — the same message serves both, and only the first should
+  // restore a remembered scroll position.
+  | { type: 'init'; content: string; pageId: string }
   | { type: 'replaceContent'; content: string }
   | { type: 'command'; command: ScribeAsideCommand }
   | ({ type: 'settings' } & ScribeAsideSettings)

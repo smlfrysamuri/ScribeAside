@@ -137,3 +137,14 @@ Work through with this note open:
 5. Double-click anywhere in the rendered page — you are back in the editor. Press `Cmd/Ctrl+Shift+V` twice and confirm both directions work from the keyboard.
 6. In reader mode, switch pages with the title-bar arrows: each page arrives rendered. Then collapse and re-expand the sidebar view: it must come back still in reader mode.
 7. In Team scope with reader mode on, edit the current page's file in a normal editor tab and save. The rendered view updates in place.
+
+## Scroll Persistence Test
+
+Needs this note in the sidebar, long enough that it scrolls. Work through in order:
+
+1. Scroll down to this section, collapse the ScribeAside view, and expand it again. You come back here, not at the top.
+2. Repeat with the whole window reloaded (**Developer: Reload Window**). Still here.
+3. Narrow the sidebar right down while it is collapsed, then expand it. The line you left is still the first line in view — the position is a line, not a pixel offset, so re-wrapping does not move it.
+4. Next page, then previous page. The other page opened at its own top and this one came back to this section.
+5. Enter reader mode, scroll to a different section, flip to the editor and back. The reader returns where you left it, and the editor is still at this section.
+6. In Team scope, scroll into this section in reader mode and edit the page's file from a normal editor tab. The rendered view updates without jumping to the top.

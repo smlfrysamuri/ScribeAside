@@ -79,6 +79,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       this.view.webview.postMessage({
         type: 'init',
         content: page?.content ?? '',
+        pageId: page?.id ?? '',
       })
     }
   }

@@ -74,6 +74,7 @@ Team notes live in a folder (`.scribeaside` by default, see `scribeaside.teamNot
 - **Links** — `Cmd/Ctrl+click` to open URLs externally or file paths in the editor
 - **Paste-as-link** — paste a URL over selected text to wrap it as `[text](url)`
 - **Find** (`Cmd/Ctrl+F`) in the current note, **Search** (`Cmd/Ctrl+Shift+F`) across every page in every scope
+- **Your place is kept** — collapse the sidebar, switch pages, reload the window, and a note reopens where you left it instead of at the top. Remembered per note, for the editor and reader mode separately, for the fifty notes you visited most recently
 - **Theme-aware** — adapts to any VS Code color theme, including high contrast
 
 ## Keyboard shortcuts

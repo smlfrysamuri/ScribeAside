@@ -79,7 +79,11 @@ test.describe('messaging', () => {
       expect(await focusCalls(page)).toBe(0)
 
       // Control: the pre-existing init path still takes focus.
-      await sendMessage(page, { type: 'init', content: 'from the user' })
+      await sendMessage(page, {
+        type: 'init',
+        content: 'from the user',
+        pageId: 'page-1',
+      })
       await expect.poll(() => getEditorContent(page)).toBe('from the user')
       expect(await focusCalls(page)).toBe(1)
     })

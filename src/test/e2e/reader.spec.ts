@@ -58,7 +58,11 @@ test.describe('reader mode — content updates while active', () => {
   }) => {
     await initEditor(page, CONTENT)
     await sendMessage(page, { type: 'setReaderMode', enabled: true })
-    await sendMessage(page, { type: 'init', content: '# Replaced' })
+    await sendMessage(page, {
+      type: 'init',
+      content: '# Replaced',
+      pageId: 'page-1',
+    })
 
     await expect(page.locator('#reader h1')).toHaveText('Replaced')
     await expect(page.locator('.cm-editor')).toBeHidden()
