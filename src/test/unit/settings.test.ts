@@ -52,6 +52,7 @@ describe('settings', () => {
       assert.doesNotThrow(() => {
         handle.applySettings({
           fontFamily: 'monospace',
+          fontSize: '18px',
           lineHeight: 1.8,
           listIndentSize: 4,
           lineNumbers: true,
@@ -73,6 +74,7 @@ describe('settings', () => {
       assert.doesNotThrow(() => {
         handle.applySettings({
           fontFamily: 'inherit',
+          fontSize: 'inherit',
           lineHeight: 1.6,
           listIndentSize: 2,
           lineNumbers: false,

@@ -96,8 +96,9 @@ Every shortcut except **Focus ScribeAside** is scoped to `when: scribeaside.focu
 | Setting | Default | Description |
 | ------- | ------- | ----------- |
 | `scribeaside.syntaxMode` | `"muted"` | `"muted"` dims markdown characters; `"hidden"` collapses them except on the cursor's line |
-| `scribeaside.fontFamily` | `"inherit"` | Font family. `"inherit"` uses the VS Code theme font |
-| `scribeaside.lineHeight` | `1.6` | Line height in the editor |
+| `scribeaside.fontFamily` | `"inherit"` | Font family. Unset, it follows `markdown.preview.fontFamily`, then the VS Code theme font |
+| `scribeaside.fontSize` | `"inherit"` | Font size, as a CSS size (`"15px"`, `"1.1em"`) or a bare number of pixels. Unset, it follows `markdown.preview.fontSize`, then the VS Code UI font size |
+| `scribeaside.lineHeight` | `1.6` | Line height. Unset, it follows `markdown.preview.lineHeight` |
 | `scribeaside.lineWrapping` | `true` | Wrap long lines |
 | `scribeaside.lineNumbers` | `false` | Show line numbers in the gutter |
 | `scribeaside.folding` | `false` | Enable section folding for H2, H3, and frontmatter |
@@ -105,6 +106,14 @@ Every shortcut except **Focus ScribeAside** is scoped to `when: scribeaside.focu
 | `scribeaside.teamNotesFolder` | `".scribeaside"` | Folder for team notes, relative to the first workspace folder |
 | `scribeaside.teamNotesView` | `"tree"` | `"tree"` browses team subfolders in **Select Page**; `"flat"` lists every note at once |
 | `scribeaside.syncGlobalNotes` | `false` | Sync global notes via Settings Sync. Opt-in — synced data cannot be removed from the remote |
+
+### Markdown preview settings
+
+If you have already told VS Code's built-in markdown preview how markdown should look, ScribeAside picks that up: `markdown.preview.fontFamily`, `markdown.preview.fontSize`, and `markdown.preview.lineHeight` style both the editor and reader mode.
+
+The fallback is per key, and a ScribeAside setting always wins over the preview one. Only a value you actually set counts on either side — a setting left at its default is not an answer, so an untouched install looks exactly as it always did. Setting `scribeaside.fontFamily` to `"inherit"` explicitly is itself an answer: it means the VS Code theme font, and the preview setting is then ignored.
+
+Only these three appearance settings are read. `markdown.preview.breaks`, `linkify`, and `typographer` are not, because they would make reader mode render different text than the editor shows.
 
 ## Known limitations
 

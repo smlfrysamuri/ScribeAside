@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   clearPostedMessages,
+  DEFAULT_SETTINGS,
   getCursorPos,
   getEditorContent,
   getPostedMessages,
@@ -72,6 +73,49 @@ test.describe('reader mode — content updates while active', () => {
     })
 
     await expect(page.locator('#reader h1')).toHaveText('External edit')
+  })
+})
+
+test.describe('reader mode — typography', () => {
+  test('rendered markdown uses the resolved font settings', async ({
+    page,
+  }) => {
+    await initEditor(page, '# Title\n\nSome text.', {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      lineHeight: 2,
+    })
+    await sendMessage(page, { type: 'setReaderMode', enabled: true })
+
+    const style = await page.locator('#reader p').evaluate(el => {
+      const computed = getComputedStyle(el)
+      return {
+        fontFamily: computed.fontFamily,
+        fontSize: computed.fontSize,
+        lineHeight: computed.lineHeight,
+      }
+    })
+    expect(style.fontFamily).toContain('monospace')
+    expect(style.fontSize).toBe('20px')
+    expect(style.lineHeight).toBe('40px')
+  })
+
+  test('a settings change while reading is picked up without a re-render', async ({
+    page,
+  }) => {
+    await initEditor(page, '# Title\n\nSome text.')
+    await sendMessage(page, { type: 'setReaderMode', enabled: true })
+    await sendMessage(page, {
+      type: 'settings',
+      ...DEFAULT_SETTINGS,
+      fontSize: '24px',
+    })
+
+    await expect
+      .poll(() =>
+        page.locator('#reader p').evaluate(el => getComputedStyle(el).fontSize),
+      )
+      .toBe('24px')
   })
 })
 

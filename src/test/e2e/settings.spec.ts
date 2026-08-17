@@ -16,6 +16,36 @@ test.describe('settings — applied on init', () => {
     expect(fontFamily).toContain('monospace')
   })
 
+  test('font size is applied from settings', async ({ page }) => {
+    await initEditor(page, 'text', { fontSize: '22px' })
+    const fontSize = await page
+      .locator('.cm-content')
+      .evaluate(el => getComputedStyle(el).fontSize)
+    expect(fontSize).toBe('22px')
+  })
+
+  test('line height is applied from settings', async ({ page }) => {
+    await initEditor(page, 'text', { fontSize: '20px', lineHeight: 2 })
+    const lineHeight = await page
+      .locator('.cm-content')
+      .evaluate(el => getComputedStyle(el).lineHeight)
+    expect(lineHeight).toBe('40px')
+  })
+
+  test('"inherit" leaves the VS Code font in place', async ({ page }) => {
+    await initEditor(page, 'text', {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+    })
+    await sendMessage(page, { type: 'settings', ...DEFAULT_SETTINGS })
+    const style = await page.locator('.cm-content').evaluate(el => {
+      const computed = getComputedStyle(el)
+      return { fontFamily: computed.fontFamily, fontSize: computed.fontSize }
+    })
+    expect(style.fontFamily).not.toContain('monospace')
+    expect(style.fontSize).not.toBe('22px')
+  })
+
   test('line numbers hidden by default', async ({ page }) => {
     await initEditor(page, 'text')
     const count = await page.locator('.cm-lineNumbers').count()

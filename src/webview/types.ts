@@ -27,7 +27,10 @@ export type ScribeAsideCommand =
 export type SyntaxMode = 'muted' | 'hidden'
 
 export interface ScribeAsideSettings {
+  // Already resolved by the host: `inherit` means "no setting answered this",
+  // not a CSS keyword to write out. See src/typography.ts.
   fontFamily: string
+  fontSize: string
   lineHeight: number
   listIndentSize: number
   lineNumbers: boolean

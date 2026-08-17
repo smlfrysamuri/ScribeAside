@@ -8,6 +8,7 @@ import { SidebarProvider } from './SidebarProvider'
 import { searchLines } from './searchLines'
 import { slugify } from './slug'
 import type { INotesStorage } from './storageTypes'
+import { resolveTypography } from './typography'
 import type {
   ExtensionMessage,
   ScribeAsideCommand,
@@ -42,6 +43,27 @@ const configuredTeamFolder = (): string =>
   vscode.workspace
     .getConfiguration('scribeaside')
     .get<string>('teamNotesFolder', DEFAULT_TEAM_FOLDER) || DEFAULT_TEAM_FOLDER
+
+// Only a value the user actually wrote counts as an answer for the typography
+// settings: `get()` would hand back the package.json default, which would make
+// every install look configured and lock `markdown.preview.*` out for good.
+const explicitValue = <T>(
+  config: vscode.WorkspaceConfiguration,
+  key: string,
+): T | undefined => {
+  const info = config.inspect<T>(key)
+  if (!info) return undefined
+  // VS Code's own precedence: folder over workspace over user, and a
+  // language-scoped override beats its plain sibling at the same level.
+  return (
+    info.workspaceFolderLanguageValue ??
+    info.workspaceFolderValue ??
+    info.workspaceLanguageValue ??
+    info.workspaceValue ??
+    info.globalLanguageValue ??
+    info.globalValue
+  )
+}
 
 const teamFolderUri = (): vscode.Uri | undefined => {
   const root = vscode.workspace.workspaceFolders?.[0]
@@ -126,9 +148,17 @@ export const activate = async (
 
   const getSettings = (): ScribeAsideSettings => {
     const config = vscode.workspace.getConfiguration('scribeaside')
+    const preview = vscode.workspace.getConfiguration('markdown.preview')
+    const typography = resolveTypography({
+      fontFamily: explicitValue(config, 'fontFamily'),
+      fontSize: explicitValue(config, 'fontSize'),
+      lineHeight: explicitValue(config, 'lineHeight'),
+      previewFontFamily: explicitValue(preview, 'fontFamily'),
+      previewFontSize: explicitValue(preview, 'fontSize'),
+      previewLineHeight: explicitValue(preview, 'lineHeight'),
+    })
     return {
-      fontFamily: config.get<string>('fontFamily', 'inherit'),
-      lineHeight: config.get<number>('lineHeight', 1.6),
+      ...typography,
       listIndentSize: config.get<number>('listIndentSize', 2),
       lineNumbers: config.get<boolean>('lineNumbers', false),
       lineWrapping: config.get<boolean>('lineWrapping', true),
@@ -839,7 +869,13 @@ export const activate = async (
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('scribeaside')) {
+      // `markdown.preview` is in here because ScribeAside's typography falls
+      // back to it: changing the preview's font while no scribeaside font is
+      // set must reach the webview like a scribeaside change would.
+      if (
+        e.affectsConfiguration('scribeaside') ||
+        e.affectsConfiguration('markdown.preview')
+      ) {
         sendSettingsToActive()
       }
       if (e.affectsConfiguration('scribeaside.syncGlobalNotes')) {

@@ -7,6 +7,7 @@ import {
 } from './editor'
 import { renderMarkdown } from './renderer'
 import type { ExtensionMessage } from './types'
+import { applyTypography } from './typography'
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -168,6 +169,10 @@ const init = (): void => {
           break
         }
         case 'settings': {
+          // Custom properties first: the reader reads them straight from CSS,
+          // and the editor's dispatch below is what schedules CodeMirror's
+          // re-measure for the new metrics.
+          applyTypography(document.documentElement, message)
           editor?.applySettings(message)
           break
         }

@@ -555,9 +555,16 @@ const vsCodeTheme = EditorView.theme({
     backgroundColor: 'var(--scribeaside-bg)',
     color: 'var(--scribeaside-fg)',
   },
+  // Typography comes in as CSS custom properties the host resolves and
+  // src/webview/typography.ts writes onto the root element, so the editor and
+  // the reader stay in step. The fallbacks repeat styles.css's `:root` block
+  // because unit tests mount an editor without the stylesheet.
   '.cm-content': {
     caretColor: 'var(--scribeaside-fg)',
-    fontSize: 'var(--vscode-font-size, 13px)',
+    fontFamily:
+      'var(--scribeaside-font-family, var(--vscode-font-family, sans-serif))',
+    fontSize: 'var(--scribeaside-font-size, var(--vscode-font-size, 13px))',
+    lineHeight: 'var(--scribeaside-line-height, 1.6)',
   },
   '.cm-cursor': {
     borderLeftColor: 'var(--scribeaside-fg)',
@@ -586,20 +593,16 @@ const decorationPlugins: Record<SyntaxMode, Extension> = {
   hidden: markdownDecorations('hidden'),
 }
 
-const buildSettingsExtensions = (settings: ScribeAsideSettings) => {
-  const fontFamily =
-    settings.fontFamily === 'inherit'
-      ? 'var(--vscode-font-family, sans-serif)'
-      : settings.fontFamily
-
-  const extensions = [
-    EditorView.theme({
-      '.cm-content': {
-        fontFamily,
-        lineHeight: String(settings.lineHeight),
-      },
-    }),
-  ]
+// Font family, size and line height are deliberately absent: they ride the CSS
+// custom properties in `vsCodeTheme` above, so changing them costs no theme
+// rebuild and reaches the reader as well as the editor.
+const buildSettingsExtensions = (
+  settings: Pick<
+    ScribeAsideSettings,
+    'lineWrapping' | 'lineNumbers' | 'folding'
+  >,
+) => {
+  const extensions: Extension[] = []
 
   if (settings.lineWrapping) {
     extensions.push(EditorView.lineWrapping)
@@ -641,13 +644,9 @@ export const createEditor = (
         vsCodeTheme,
         codeMirrorSettings.of(
           buildSettingsExtensions({
-            fontFamily: 'inherit',
-            lineHeight: 1.6,
-            listIndentSize: 2,
             lineNumbers: false,
             lineWrapping: true,
             folding: false,
-            syntaxMode: 'muted',
           }),
         ),
         markdown({ extensions: GFM, codeLanguages }),

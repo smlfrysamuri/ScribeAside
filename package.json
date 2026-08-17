@@ -2,7 +2,7 @@
   "name": "scribeaside",
   "displayName": "ScribeAside",
   "description": "A markdown notepad that lives in your VS Code sidebar — muted, hidden, or fully rendered syntax, with workspace, global, and committable team notes.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "smlfrysamuri",
   "packageManager": "pnpm@10.33.0",
   "license": "GPL-3.0-or-later",
@@ -387,12 +387,17 @@
         "scribeaside.fontFamily": {
           "type": "string",
           "default": "inherit",
-          "description": "Font family for the editor. \"inherit\" uses the VS Code theme font."
+          "description": "Font family for notes. Left unset, `markdown.preview.fontFamily` is used if you have set it, and the VS Code theme font otherwise. Set this explicitly (\"inherit\" included) to ignore the markdown preview setting."
+        },
+        "scribeaside.fontSize": {
+          "type": "string",
+          "default": "inherit",
+          "description": "Font size for notes, as a CSS size (\"15px\", \"1.1em\") or a bare number of pixels. Left unset, `markdown.preview.fontSize` is used if you have set it, and the VS Code UI font size otherwise."
         },
         "scribeaside.lineHeight": {
           "type": "number",
           "default": 1.6,
-          "description": "Line height in the editor."
+          "description": "Line height for notes. Left unset, `markdown.preview.lineHeight` is used if you have set it."
         },
         "scribeaside.lineWrapping": {
           "type": "boolean",

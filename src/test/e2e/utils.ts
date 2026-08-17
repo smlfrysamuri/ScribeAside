@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 
 export interface ScribeAsideSettings {
   fontFamily: string
+  fontSize: string
   lineHeight: number
   listIndentSize: number
   lineNumbers: boolean
@@ -12,6 +13,7 @@ export interface ScribeAsideSettings {
 
 export const DEFAULT_SETTINGS: ScribeAsideSettings = {
   fontFamily: 'inherit',
+  fontSize: 'inherit',
   lineHeight: 1.6,
   listIndentSize: 2,
   lineNumbers: false,
